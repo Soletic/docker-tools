@@ -1,0 +1,8 @@
+webvps:
+  extends:
+    file: base.yml
+    service: webvps
+phpmyadmin:
+  extends:
+    file: base.yml
+    service: phpmyadmin

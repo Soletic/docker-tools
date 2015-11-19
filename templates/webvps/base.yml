@@ -1,0 +1,18 @@
+webvps:
+  build: ./webvps
+  container_name: ${WEBVPS_NAME}.webvps
+  volumes:
+    - ./volumes/www:/var/www
+  environment:
+    HOST_NAME: ${WEBVPS_NAME}
+    HOST_DOMAIN_NAME: ${WEBVPS_HOST}
+    APACHE_USERNAME_UID: ${WEBVPS_UID_WWW}
+  ports:
+    - "80:80"
+phpmyadmin:
+  image: soletic/phpmyadmin
+  container_name: ${WEBVPS_NAME}.webvps.phpmyadmin
+  ports :
+    - "8080:80"
+  links:
+    - webvps:mysql
