@@ -94,7 +94,7 @@ case "$1" in
 		done
 		echo "$WEBVPS_NAME setup"
 		# Init volumes
-		mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/www/html
+		mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/www/html $HOSTING_SRC/$WEBVPS_NAME/volumes/mysql
 		cat > $HOSTING_SRC/$WEBVPS_NAME/volumes/www/html/index.html <<-EOF
 				Welcome $WEBVPS_HOST
 			EOF
@@ -127,7 +127,7 @@ case "$1" in
 			chown -R $UID_WWW $HOSTING_SRC/$webvps/volumes/www
 		done
 		;;
-	up|rm|start|stop)
+	up|rm|start|stop|recreate)
 		for webvps in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output '.webvps[] | .name'); do
 			if [ ! -z "$2" ] && [ "$2" != "$webvps" ]; then
 				continue
@@ -138,6 +138,11 @@ case "$1" in
 			cd $HOSTING_SRC/$webvps;
 			if [ "$1" = "up" ]; then
 				docker-compose up -d
+			elif [ "$1" = "recreate" ]; then
+				docker-compose stop
+				docker-compose rm -f
+				docker-compose build --no-cache 
+				docker-compose up -d --force-recreate
 			else
 				docker-compose $1
 			fi
@@ -147,3 +152,4 @@ case "$1" in
 		>&2 echo "Command $1 not found. Usage : webvps.sh <command> <options>"
 		exit 1
 esac
+
