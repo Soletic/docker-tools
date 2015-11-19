@@ -3,6 +3,7 @@ webvps:
   container_name: ${WEBVPS_NAME}.webvps
   volumes:
     - ./volumes/www:/var/www
+    - ./volumes/mysql:/var/lib/mysql
   environment:
     HOST_NAME: ${WEBVPS_NAME}
     HOST_DOMAIN_NAME: ${WEBVPS_HOST}
