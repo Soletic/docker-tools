@@ -14,5 +14,3 @@ phpmyadmin:
   container_name: ${WEBVPS_NAME}.webvps.phpmyadmin
   ports :
     - "8080:80"
-  links:
-    - webvps:mysql

@@ -19,7 +19,7 @@ fi
 HOSTING_SRC=$(echo $JSON_DOCKER_WEBVPS | jq --raw-output ".src")
 
 function _setquota {
-	hash foo 2>/dev/null || { echo >&2 "No quota setup because setquota command missing in your system"; return; }
+	hash setquota 2>/dev/null || { echo >&2 "No quota setup because setquota command missing in your system"; return; }
 	case "$1" in
 		add)
 			setquota -u $2 $3 $3 1000000 1000000 -a
@@ -92,6 +92,7 @@ case "$1" in
 				exit 1
 			fi
 		done
+		echo "$WEBVPS_NAME setup"
 		# Init volumes
 		mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/www/html
 		cat > $HOSTING_SRC/$WEBVPS_NAME/volumes/www/html/index.html <<-EOF
@@ -117,6 +118,7 @@ case "$1" in
 		cp $BASEDIR/templates/webvps/docker-compose.yml $HOSTING_SRC/$WEBVPS_NAME/
 		# Add the new webvps in json file
 		echo $JSON_DOCKER_WEBVPS | jq ".webvps |= .+ [{\"name\": \"$WEBVPS_NAME\", \"host\": \"$WEBVPS_HOST\", \"uid\": $WEBVPS_WWW_UID, \"diskquota\": $WEBVPS_DISK_QUOTA}]" > $JSON_DOCKER_PATH
+		echo " > Created ! Now execute : webvps.sh up $WEBVPS_NAME"
 		;;
 	refresh)
 		# Refresh informations and setting for all webvps. Useful to fix problems
@@ -127,6 +129,9 @@ case "$1" in
 		;;
 	up|rm|start|stop)
 		for webvps in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output '.webvps[] | .name'); do
+			if [ ! -z "$2" ] && [ "$2" != "$webvps" ]; then
+				continue
+			fi
 			echo "Webvps $webvps"
 			echo "=============="
 			. $HOSTING_SRC/$webvps/webvps.env
