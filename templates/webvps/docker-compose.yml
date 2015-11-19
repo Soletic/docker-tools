@@ -6,3 +6,5 @@ phpmyadmin:
   extends:
     file: base.yml
     service: phpmyadmin
+  links:
+    - webvps:mysql
