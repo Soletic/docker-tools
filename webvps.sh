@@ -40,7 +40,9 @@ function _refresh {
 	# Refresh permissions file on volume
 	webvps=$1
 	. $HOSTING_SRC/$webvps/webvps.env
-	chown -R $UID_WWW:$UID_WWW $HOSTING_SRC/$webvps/volumes/www
+	chown -R $WEBVPS_WWW_UID:$WEBVPS_WWW_UID $HOSTING_SRC/$webvps/volumes/www
+	# Fix quota
+	_setquota add $WEBVPS_WWW_UID $WEBVPS_DISK_QUOTA
 }
 
 case "$1" in
@@ -105,7 +107,6 @@ case "$1" in
 		cat > $HOSTING_SRC/$WEBVPS_NAME/volumes/www/html/index.html <<-EOF
 				Welcome $WEBVPS_HOST
 			EOF
-		chown -R $WEBVPS_WWW_UID $HOSTING_SRC/$WEBVPS_NAME/volumes/www
 		# Create an env file
 		cat > $HOSTING_SRC/$WEBVPS_NAME/webvps.env <<-EOF
 				#!/bin/bash
@@ -113,8 +114,6 @@ case "$1" in
 				export WEBVPS_HOST=$WEBVPS_HOST
 				export WEBVPS_UID_WWW=$WEBVPS_WWW_UID
 			EOF
-		# Set quota
-		_setquota add $WEBVPS_WWW_UID $WEBVPS_DISK_QUOTA
 		# Create docker-compose and image base
 		mkdir $HOSTING_SRC/$WEBVPS_NAME/webvps
 		cat > $HOSTING_SRC/$WEBVPS_NAME/webvps/Dockerfile <<-EOF
@@ -123,6 +122,8 @@ case "$1" in
 			EOF
 		ln -s $BASEDIR/templates/webvps/base.yml $HOSTING_SRC/$WEBVPS_NAME/base.yml
 		cp $BASEDIR/templates/webvps/docker-compose.yml $HOSTING_SRC/$WEBVPS_NAME/
+		# Refresh
+		_refresh $WEBVPS_NAME
 		# Add the new webvps in json file
 		echo $JSON_DOCKER_WEBVPS | jq ".webvps |= .+ [{\"name\": \"$WEBVPS_NAME\", \"host\": \"$WEBVPS_HOST\", \"uid\": $WEBVPS_WWW_UID, \"diskquota\": $WEBVPS_DISK_QUOTA}]" > $JSON_DOCKER_PATH
 		echo " > Created ! Now execute : webvps.sh up $WEBVPS_NAME"
