@@ -40,9 +40,26 @@ function _refresh {
 	# Refresh permissions file on volume
 	webvps=$1
 	. $HOSTING_SRC/$webvps/webvps.env
-	chown -R $WEBVPS_WWW_UID:$WEBVPS_WWW_UID $HOSTING_SRC/$webvps/volumes/www
+	chown -R $WEBVPS_UID_WWW:$WEBVPS_UID_WWW $HOSTING_SRC/$webvps/volumes/www
 	# Fix quota
-	_setquota add $WEBVPS_WWW_UID $WEBVPS_DISK_QUOTA
+	_setquota add $WEBVPS_UID_WWW $(_webvps_getinfo $webvps "diskquota")
+}
+
+function _webvps_getinfo {
+	if [ -z $1 ] || [ -z $2 ]; then
+		>&2 echo "_webvps_getinfo require two arguments : webvps name and key of the info"
+		exit
+	fi
+	webvps=$1
+	key=$2
+	i=0
+	for webvps_loop in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output '.webvps[] | .name'); do
+		if [ "$webvps_loop" = "$webvps" ]; then
+			echo $(echo $JSON_DOCKER_WEBVPS | jq --raw-output ".webvps[$i] | .$key")
+		fi 
+		((i+=1))
+	done
+	echo ""
 }
 
 case "$1" in
@@ -122,10 +139,10 @@ case "$1" in
 			EOF
 		ln -s $BASEDIR/templates/webvps/base.yml $HOSTING_SRC/$WEBVPS_NAME/base.yml
 		cp $BASEDIR/templates/webvps/docker-compose.yml $HOSTING_SRC/$WEBVPS_NAME/
-		# Refresh
-		_refresh $WEBVPS_NAME
 		# Add the new webvps in json file
 		echo $JSON_DOCKER_WEBVPS | jq ".webvps |= .+ [{\"name\": \"$WEBVPS_NAME\", \"host\": \"$WEBVPS_HOST\", \"uid\": $WEBVPS_WWW_UID, \"diskquota\": $WEBVPS_DISK_QUOTA}]" > $JSON_DOCKER_PATH
+		# Refresh
+		_refresh $WEBVPS_NAME
 		echo " > Created ! Now execute : webvps.sh up $WEBVPS_NAME"
 		;;
 	refresh)
@@ -133,6 +150,26 @@ case "$1" in
 		for webvps in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output '.webvps[] | .name'); do
 			_refresh $webvps
 		done
+		;;
+	delete)
+		if [ -z $2 ]; then
+			>&2 echo "Delete command requires the webvps name"
+			exit
+		fi
+		webvps=$2
+		for webvps_loop in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output '.webvps[] | .name'); do
+			if [ "$webvps_loop" = "$webvps" ]; then
+				cd $HOSTING_SRC/$webvps;
+				docker-compose stop
+				docker-compose rm -f
+				rm -Rf $HOSTING_SRC/$webvps
+				echo $JSON_DOCKER_WEBVPS | jq "del(.webvps[$i])" > $JSON_DOCKER_PATH
+				echo "$webvps remove (but not associated image)"
+				exit
+			fi 
+			((i+=1))
+		done
+		>&2 echo "$webvps not found"
 		;;
 	up|rm|start|stop|recreate)
 		for webvps in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output '.webvps[] | .name'); do
