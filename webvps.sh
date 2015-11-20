@@ -36,6 +36,13 @@ function _setquota {
 	repquota -a | grep ^#$2
 }
 
+function _refresh {
+	# Refresh permissions file on volume
+	webvps=$1
+	. $HOSTING_SRC/$webvps/webvps.env
+	chown -R $UID_WWW:$UID_WWW $HOSTING_SRC/$webvps/volumes/www
+}
+
 case "$1" in
 	new)
 		# Usage : new --name|-n soletic --host|-h soletic.org --diskquota|-dq 2000000 --www-uid|-wid 10001
@@ -94,7 +101,7 @@ case "$1" in
 		done
 		echo "$WEBVPS_NAME setup"
 		# Init volumes
-		mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/www/html
+		mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/www/html $HOSTING_SRC/$WEBVPS_NAME/volumes/mysql
 		cat > $HOSTING_SRC/$WEBVPS_NAME/volumes/www/html/index.html <<-EOF
 				Welcome $WEBVPS_HOST
 			EOF
@@ -123,11 +130,10 @@ case "$1" in
 	refresh)
 		# Refresh informations and setting for all webvps. Useful to fix problems
 		for webvps in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output '.webvps[] | .name'); do
-			. $HOSTING_SRC/$webvps/webvps.env
-			chown -R $UID_WWW $HOSTING_SRC/$webvps/volumes/www
+			_refresh $webvps
 		done
 		;;
-	up|rm|start|stop)
+	up|rm|start|stop|recreate)
 		for webvps in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output '.webvps[] | .name'); do
 			if [ ! -z "$2" ] && [ "$2" != "$webvps" ]; then
 				continue
@@ -138,6 +144,11 @@ case "$1" in
 			cd $HOSTING_SRC/$webvps;
 			if [ "$1" = "up" ]; then
 				docker-compose up -d
+			elif [ "$1" = "recreate" ]; then
+				docker-compose stop
+				docker-compose build --pull
+				docker-compose up -d --force-recreate
+				_refresh $webvps
 			else
 				docker-compose $1
 			fi
