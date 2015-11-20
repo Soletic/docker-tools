@@ -146,7 +146,8 @@ case "$1" in
 				docker-compose up -d
 			elif [ "$1" = "recreate" ]; then
 				docker-compose stop
-				docker-compose build --pull
+				docker-compose rm -f
+				docker-compose build --no-cache 
 				docker-compose up -d --force-recreate
 				_refresh $webvps
 			else
@@ -158,3 +159,4 @@ case "$1" in
 		>&2 echo "Command $1 not found. Usage : webvps.sh <command> <options>"
 		exit 1
 esac
+
