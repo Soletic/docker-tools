@@ -22,7 +22,9 @@ function _setquota {
 	hash setquota 2>/dev/null || { echo >&2 "No quota setup because setquota command missing in your system"; return; }
 	case "$1" in
 		add)
-			setquota -u $2 $3 $3 1000000 1000000 -a
+			# Convert because size could be scientific notation
+			printf -v size "%.f" "$3"
+			setquota -u $2 $size $size 1000000 1000000 -a
 			;;
 		remove)
 			setquota -u $2 0 0 0 0 -a
