@@ -7,7 +7,13 @@ webvps:
   environment:
     HOST_NAME: ${WEBVPS_NAME}
     HOST_DOMAIN_NAME: ${WEBVPS_HOST}
-    APACHE_USERNAME_UID: ${WEBVPS_UID_WWW}
+    WORKER_UID: ${WEPVPS_WORKER_UID}
+ssh:
+  image: soletic/ssh
+  volumes:
+    - ./volumes:/home
+  ports:
+    - "${WEPVPS_PORT_SSH}:22"
 phpmyadmin:
   image: soletic/phpmyadmin
   container_name: ${WEBVPS_NAME}.webvps.phpmyadmin

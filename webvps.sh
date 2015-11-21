@@ -42,9 +42,9 @@ function _refresh {
 	# Refresh permissions file on volume
 	webvps=$1
 	. $HOSTING_SRC/$webvps/webvps.env
-	chown -R $WEBVPS_UID_WWW:$WEBVPS_UID_WWW $HOSTING_SRC/$webvps/volumes/www
+	chown -R $WEBVPS_WORKER_UID:$WEBVPS_WORKER_UID $HOSTING_SRC/$webvps/volumes/www
 	# Fix quota
-	_setquota add $WEBVPS_UID_WWW $(_webvps_getinfo $webvps "diskquota")
+	_setquota add $WEBVPS_WORKER_UID $(_webvps_getinfo $webvps "diskquota")
 }
 
 function _webvps_getinfo {
@@ -66,7 +66,7 @@ function _webvps_getinfo {
 
 case "$1" in
 	new)
-		# Usage : new --name|-n soletic --host|-h soletic.org --diskquota|-dq 2000000 --www-uid|-wid 10001
+		# Usage : new --name|-n soletic --host|-h soletic.org --diskquota|-dq 2000000 --id|-id 1
 		while [[ $# > 1 ]] 
 		do
 			key="$1"
@@ -83,8 +83,8 @@ case "$1" in
 					WEBVPS_DISK_QUOTA="$2"
 					shift # past argument
 					;;
-				-wid|--www-uid)
-					WEBVPS_WWW_UID="$2"
+				-id|--id)
+					WEBVPS_ID="$2"
 					shift # past argument
 					;;
 				*)
@@ -106,10 +106,12 @@ case "$1" in
 			>&2 echo "[new webvps] diskquota missing"
 			exit 1
 		fi
-		if [ -z "$WEBVPS_WWW_UID" ]; then
-			>&2 echo "[new webvps] www uid missing"
+		if [ -z "$WEBVPS_ID" ]; then
+			>&2 echo "[new webvps] id missing"
 			exit 1
 		fi
+		WEPVPS_WORKER_UID=$(($WEPVPS_ID+10000))
+		WEPVPS_PORT_SSH=(($WEPVPS_ID+200))"22"
 		if [ -d $HOSTING_SRC/$WEBVPS_NAME ]; then
 			>&2 echo "Webvps $WEBVPS_NAME already exists in filesystem : $HOSTING_SRC/$WEBVPS_NAME"
 			exit 1
@@ -131,7 +133,9 @@ case "$1" in
 				#!/bin/bash
 				export WEBVPS_NAME=$WEBVPS_NAME
 				export WEBVPS_HOST=$WEBVPS_HOST
-				export WEBVPS_UID_WWW=$WEBVPS_WWW_UID
+				export WEBVPS_ID=$WEBVPS_ID
+				export WEPVPS_WORKER_UID=$WEPVPS_WORKER_UID
+				export WEPVPS_PORT_SSH=$WEPVPS_PORT_SSH
 			EOF
 		# Create docker-compose and image base
 		mkdir $HOSTING_SRC/$WEBVPS_NAME/webvps
@@ -142,7 +146,7 @@ case "$1" in
 		ln -s $BASEDIR/templates/webvps/base.yml $HOSTING_SRC/$WEBVPS_NAME/base.yml
 		cp $BASEDIR/templates/webvps/docker-compose.yml $HOSTING_SRC/$WEBVPS_NAME/
 		# Add the new webvps in json file
-		echo $JSON_DOCKER_WEBVPS | jq ".webvps |= .+ [{\"name\": \"$WEBVPS_NAME\", \"host\": \"$WEBVPS_HOST\", \"uid\": $WEBVPS_WWW_UID, \"diskquota\": $WEBVPS_DISK_QUOTA}]" > $JSON_DOCKER_PATH
+		echo $JSON_DOCKER_WEBVPS | jq ".webvps |= .+ [{\"name\": \"$WEBVPS_NAME\", \"host\": \"$WEBVPS_HOST\", \"uid\": $WEBVPS_ID, \"diskquota\": $WEBVPS_DISK_QUOTA}]" > $JSON_DOCKER_PATH
 		# Refresh
 		_refresh $WEBVPS_NAME
 		echo " > Created ! Now execute : webvps.sh up $WEBVPS_NAME"
