@@ -110,8 +110,8 @@ case "$1" in
 			>&2 echo "[new webvps] id missing"
 			exit 1
 		fi
-		WEPVPS_WORKER_UID=$(($WEPVPS_ID+10000))
-		WEPVPS_PORT_SSH=(($WEPVPS_ID+200))"22"
+		WEBVPS_WORKER_UID=$(($WEBVPS_ID+10000))
+		WEBVPS_PORT_SSH=$(($WEBVPS_ID+200))"22"
 		if [ -d $HOSTING_SRC/$WEBVPS_NAME ]; then
 			>&2 echo "Webvps $WEBVPS_NAME already exists in filesystem : $HOSTING_SRC/$WEBVPS_NAME"
 			exit 1
@@ -134,8 +134,8 @@ case "$1" in
 				export WEBVPS_NAME=$WEBVPS_NAME
 				export WEBVPS_HOST=$WEBVPS_HOST
 				export WEBVPS_ID=$WEBVPS_ID
-				export WEPVPS_WORKER_UID=$WEPVPS_WORKER_UID
-				export WEPVPS_PORT_SSH=$WEPVPS_PORT_SSH
+				export WEBVPS_WORKER_UID=$WEBVPS_WORKER_UID
+				export WEBVPS_PORT_SSH=$WEBVPS_PORT_SSH
 			EOF
 		# Create docker-compose and image base
 		mkdir $HOSTING_SRC/$WEBVPS_NAME/webvps
