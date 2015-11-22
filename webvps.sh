@@ -3,7 +3,7 @@
 BASEDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 # Default value
-JSON_DOCKER_WEBVPS='{"webvps": [], "src": "/home/docker/hosting/src"}'
+JSON_DOCKER_WEBVPS='{"webvps": [], "src": "/home/docker/hosting/webvps"}'
 JSON_DOCKER_PATH=$BASEDIR/webvps.json
 
 # Test if config file exist and load
@@ -191,6 +191,7 @@ case "$1" in
 			if [ "$1" = "up" ]; then
 				docker-compose up -d
 				# Create user in the chroot ssh
+
 			elif [ "$1" = "recreate" ]; then
 				docker-compose stop
 				docker-compose rm -f
