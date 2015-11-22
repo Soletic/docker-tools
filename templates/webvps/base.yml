@@ -8,6 +8,9 @@ webvps:
     HOST_NAME: ${WEBVPS_NAME}
     HOST_DOMAIN_NAME: ${WEBVPS_HOST}
     WORKER_UID: ${WEBVPS_WORKER_UID}
+    VIRTUAL_HOST: ${WEBVPS_HOST},www.${WEBVPS_HOST}
+  ports:
+    - "${WEBVPS_PORT_MYSQL}:3306"
 ssh:
   image: soletic/ssh
   volumes:
@@ -17,3 +20,5 @@ ssh:
 phpmyadmin:
   image: soletic/phpmyadmin
   container_name: ${WEBVPS_NAME}.webvps.phpmyadmin
+  environment:
+    VIRTUAL_HOST: db.${WEBVPS_HOST}

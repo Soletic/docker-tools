@@ -112,6 +112,7 @@ case "$1" in
 		fi
 		WEBVPS_WORKER_UID=$(($WEBVPS_ID+10000))
 		WEBVPS_PORT_SSH=$(($WEBVPS_ID+200))"22"
+		WEBVPS_PORT_MYSQL=$(($WEBVPS_ID+200))"36"
 		if [ -d $HOSTING_SRC/$WEBVPS_NAME ]; then
 			>&2 echo "Webvps $WEBVPS_NAME already exists in filesystem : $HOSTING_SRC/$WEBVPS_NAME"
 			exit 1
@@ -136,6 +137,7 @@ case "$1" in
 				export WEBVPS_ID=$WEBVPS_ID
 				export WEBVPS_WORKER_UID=$WEBVPS_WORKER_UID
 				export WEBVPS_PORT_SSH=$WEBVPS_PORT_SSH
+				export WEBVPS_PORT_MYSQL=$WEBVPS_PORT_MYSQL
 			EOF
 		# Create docker-compose and image base
 		mkdir $HOSTING_SRC/$WEBVPS_NAME/webvps
@@ -188,6 +190,7 @@ case "$1" in
 			cd $HOSTING_SRC/$webvps;
 			if [ "$1" = "up" ]; then
 				docker-compose up -d
+				# Create user in the chroot ssh
 			elif [ "$1" = "recreate" ]; then
 				docker-compose stop
 				docker-compose rm -f
