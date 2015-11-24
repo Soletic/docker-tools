@@ -1,0 +1,16 @@
+phpserver:
+  extends:
+  	file: base.yml
+  	service: phpserver
+  links:
+    - mysql:mysql
+mysql:
+  extends:
+    file: base.yml
+    service: mysql
+phpmyadmin:
+  extends:
+    file: base.yml
+    service: phpmyadmin
+  links:
+    - mysql:mysql

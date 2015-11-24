@@ -66,7 +66,7 @@ function _webvps_getinfo {
 
 case "$1" in
 	new)
-		# Usage : new --name|-n soletic --host|-h soletic.org --diskquota|-dq 2000000 --id|-id 1
+		# Usage : new --name|-n soletic --host|-h soletic.org --diskquota|-dq 2000000 --id|-id 1 -s|--service phpserver
 		while [[ $# > 1 ]] 
 		do
 			key="$1"
@@ -85,6 +85,10 @@ case "$1" in
 					;;
 				-id|--id)
 					WEBVPS_ID="$2"
+					shift # past argument
+					;;
+				-s|--service)
+					WEBVPS_TYPE="$2"
 					shift # past argument
 					;;
 				*)
@@ -110,6 +114,15 @@ case "$1" in
 			>&2 echo "[new webvps] id missing"
 			exit 1
 		fi
+		if [ -z "$WEBVPS_TYPE" ]; then
+			>&2 echo "[new webvps] service missing"
+			exit 1
+		fi
+		WEBVPS_SSH_CONTAINER_ID=$(docker ps --format="{{.ID}}" --filter="name=sshd.webvps")
+		if [ "$WEBVPS_SSH_CONTAINER_ID" = "" ]; then
+			>&2 echo "SSH webvps container missing and required to setup sshd access. Please run the container sshd.webvps"
+			exit 1
+		fi
 		WEBVPS_WORKER_UID=$(($WEBVPS_ID+10000))
 		WEBVPS_PORT_SSH=$(($WEBVPS_ID+200))"22"
 		WEBVPS_PORT_MYSQL=$(($WEBVPS_ID+200))"36"
@@ -124,11 +137,14 @@ case "$1" in
 			fi
 		done
 		echo "$WEBVPS_NAME setup"
-		# Init volumes
-		mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/www/html $HOSTING_SRC/$WEBVPS_NAME/volumes/mysql
-		cat > $HOSTING_SRC/$WEBVPS_NAME/volumes/www/html/index.html <<-EOF
-				Welcome $WEBVPS_HOST
-			EOF
+
+
+		if [ ! -d $BASEDIR/templates/$WEBVPS_TYPE ]; then
+			>&2 echo "Service template $WEBVPS_TYPE doesn't exist"
+			exit 1
+		fi
+		mkdir -p $HOSTING_SRC/$WEBVPS_NAME
+
 		# Create an env file
 		cat > $HOSTING_SRC/$WEBVPS_NAME/webvps.env <<-EOF
 				#!/bin/bash
@@ -138,17 +154,36 @@ case "$1" in
 				export WEBVPS_WORKER_UID=$WEBVPS_WORKER_UID
 				export WEBVPS_PORT_SSH=$WEBVPS_PORT_SSH
 				export WEBVPS_PORT_MYSQL=$WEBVPS_PORT_MYSQL
+				export WEBVPS_TYPE=$WEBVPS_TYPE
 			EOF
 		# Create docker-compose and image base
-		mkdir $HOSTING_SRC/$WEBVPS_NAME/webvps
-		cat > $HOSTING_SRC/$WEBVPS_NAME/webvps/Dockerfile <<-EOF
-				FROM soletic/webvps:latest
-				MAINTAINER Soletic Hosting <serveur@soletic.org>
-			EOF
-		ln -s $BASEDIR/templates/webvps/base.yml $HOSTING_SRC/$WEBVPS_NAME/base.yml
-		cp $BASEDIR/templates/webvps/docker-compose.yml $HOSTING_SRC/$WEBVPS_NAME/
+		ln -s $BASEDIR/templates/base.yml $HOSTING_SRC/$WEBVPS_NAME/base.yml
+		cp $BASEDIR/templates/$WEBVPS_TYPE/$WEBVPS_TYPE-docker-compose.yml $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml
+
+		#### Init volumes
+		is_mysql=$(cat $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml | grep -e "^mysql")
+		is_phpserver=$(cat $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml | grep -e "^phpserver")
+		# Is phpserver ?
+		if [ "$is_phpserver" != "" ]; then
+			mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/www/{conf,logs,html,cgi-bin}
+			mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/www/conf/{apache2,certificates}
+			mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/home
+			cat > $HOSTING_SRC/$WEBVPS_NAME/volumes/www/html/index.html <<-EOF
+					Welcome $WEBVPS_HOST
+				EOF
+		fi
+		# Is mysql ?
+		if [ "$is_mysql" != "" ]; then
+			mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/www/backup/mysql
+		fi
+
 		# Add the new webvps in json file
 		echo $JSON_DOCKER_WEBVPS | jq ".webvps |= .+ [{\"name\": \"$WEBVPS_NAME\", \"host\": \"$WEBVPS_HOST\", \"uid\": $WEBVPS_ID, \"diskquota\": $WEBVPS_DISK_QUOTA}]" > $JSON_DOCKER_PATH
+		
+		# Add sftuser
+		docker exec -it sshd.webvps /chroot.sh adduser -u $WEBVPS_NAME -id $WEBVPS_WORKER_UID
+		docker exec -it sshd.webvps /root/scripts/chroot_init_mysql.sh conf -u $WEBVPS_NAME -P $WEBVPS_PORT_MYSQL
+
 		# Refresh
 		_refresh $WEBVPS_NAME
 		echo " > Created ! Now execute : webvps.sh up $WEBVPS_NAME"
@@ -167,6 +202,12 @@ case "$1" in
 		webvps=$2
 		for webvps_loop in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output '.webvps[] | .name'); do
 			if [ "$webvps_loop" = "$webvps" ]; then
+				# Remove sftpuser
+				WEBVPS_SSH_CONTAINER_ID=$(docker ps --format="{{.ID}}" --filter="name=sshd.webvps")
+				if [ "$WEBVPS_SSH_CONTAINER_ID" != "" ]; then
+					docker exec -it sshd.webvps /chroot.sh deluser -u $webvps
+				fi
+		
 				cd $HOSTING_SRC/$webvps;
 				docker-compose stop
 				docker-compose rm -f

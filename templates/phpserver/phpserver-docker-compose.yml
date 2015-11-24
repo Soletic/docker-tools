@@ -1,0 +1,4 @@
+phpserver:
+  extends:
+  	file: base.yml
+  	service: phpserver

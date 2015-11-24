@@ -1,0 +1,34 @@
+phpserver:
+  image: soletic/phpserver
+  container_name: ${WEBVPS_NAME}.phpserver
+  volumes:
+    - ./volumes/www:/var/www
+  environment:
+    WORKER_NAME: ${WEBVPS_NAME}
+    WORKER_UID: ${WEBVPS_WORKER_UID}
+    HOST_DOMAIN_NAME: ${WEBVPS_HOST}
+    VIRTUAL_HOST: ${WEBVPS_HOST},www.${WEBVPS_HOST}
+mysql:
+  image: soletic/mysql
+  container_name: ${WEBVPS_NAME}.mysql
+  volumes:
+    - ./volumes/www/backup/mysql:/home/backup
+  environment:
+    WORKER_NAME: ${WEBVPS_NAME}
+  ports:
+    - "${WEBVPS_PORT_MYSQL}:3306"
+ssh:
+  image: soletic/sshd
+  container_name: ${WEBVPS_NAME}.ssh
+  volumes:
+    - ./volumes:/home
+  environment:
+    WORKER_NAME: ${WEBVPS_NAME}
+    WORKER_UID: ${WEBVPS_WORKER_UID}
+  ports:
+    - "${WEBVPS_PORT_SSH}:22"
+phpmyadmin:
+  image: soletic/phpmyadmin
+  container_name: ${WEBVPS_NAME}.phpmyadmin
+  environment:
+    VIRTUAL_HOST: db.${WEBVPS_HOST}
