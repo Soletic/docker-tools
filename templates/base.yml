@@ -17,6 +17,8 @@ mysql:
     WORKER_NAME: ${WEBVPS_NAME}
   ports:
     - "${WEBVPS_PORT_MYSQL}:3306"
+  cpuset: ${WEBVPS_CPU_MYSQL}
+  cpu_shares: ${WEBVPS_CPU_SHARES}
 ssh:
   image: soletic/sshd
   container_name: ${WEBVPS_NAME}.ssh
@@ -27,8 +29,13 @@ ssh:
     WORKER_UID: ${WEBVPS_WORKER_UID}
   ports:
     - "${WEBVPS_PORT_SSH}:22"
+  mem_limit: 512m
+  memswap_limit: 512m
 phpmyadmin:
   image: soletic/phpmyadmin
   container_name: ${WEBVPS_NAME}.phpmyadmin
+  cpu_shares: 50
   environment:
     VIRTUAL_HOST: db.${WEBVPS_HOST}
+  mem_limit: 512m
+  memswap_limit: 512m

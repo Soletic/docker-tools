@@ -52,9 +52,9 @@ function _webvps_getinfo {
 		>&2 echo "_webvps_getinfo require two arguments : webvps name and key of the info"
 		exit
 	fi
-	webvps=$1
-	key=$2
-	i=0
+	local webvps=$1
+	local key=$2
+	local i=0
 	for webvps_loop in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output '.webvps[] | .name'); do
 		if [ "$webvps_loop" = "$webvps" ]; then
 			echo $(echo $JSON_DOCKER_WEBVPS | jq --raw-output ".webvps[$i] | .$key")
@@ -62,6 +62,24 @@ function _webvps_getinfo {
 		((i+=1))
 	done
 	echo ""
+}
+
+# Check is a webvps as a property with specific value
+function _webvps_is_webvps_exist_by_property {
+	if [ -z $1 ] || [ -z $2 ]; then
+		>&2 echo "_webvps_is_exist require two arguments : <property> and <value>"
+		exit
+	fi
+	local property=$1
+	local value=$2
+	local i=0
+	for property_value in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output ".webvps[] | .$property"); do
+		if [ "$property_value" = "$value" ]; then
+			echo true
+			return
+		fi 
+	done
+	echo false
 }
 
 case "$1" in
@@ -97,7 +115,7 @@ case "$1" in
 					;;
 			esac
 		done
-		# Check var
+		# Check var and requirements
 		if [ -z "$WEBVPS_NAME" ]; then
 			>&2 echo "[new webvps] name missing"
 			exit 1
@@ -107,42 +125,70 @@ case "$1" in
 			exit 1
 		fi
 		if [ -z "$WEBVPS_DISK_QUOTA" ]; then
-			>&2 echo "[new webvps] diskquota missing"
-			exit 1
-		fi
-		if [ -z "$WEBVPS_ID" ]; then
-			>&2 echo "[new webvps] id missing"
-			exit 1
+			echo "[info] Default disk quota used : 2G"
+			WEBVPS_DISK_QUOTA=2000000
 		fi
 		if [ -z "$WEBVPS_TYPE" ]; then
 			>&2 echo "[new webvps] service missing"
 			exit 1
 		fi
+		if [ ! -d $BASEDIR/templates/$WEBVPS_TYPE ]; then
+			>&2 echo "Service template $WEBVPS_TYPE doesn't exist"
+			exit 1
+		fi
+
+		# Check if webvps name already exist
+		is_exist=$(_webvps_is_webvps_exist_by_property "name" "$WEBVPS_NAME")
+		if [ "$is_exist" = true ]; then
+			>&2 echo "Webvps $WEBVPS_NAME already exists in $JSON_DOCKER_PATH"
+			exit 1
+		fi
+		if [ -d $HOSTING_SRC/$WEBVPS_NAME ]; then
+			>&2 echo "Webvps $WEBVPS_NAME already exists in filesystem : $HOSTING_SRC/$WEBVPS_NAME. Please remove first."
+			exit 1
+		fi
+
+		### Get webvps id
+		if [ -z "$WEBVPS_ID" ]; then
+			idsearch=1
+			while [ true ]; do
+				is_uid_exist=$(_webvps_is_webvps_exist_by_property "uid" "$idsearch")
+				if [ "$is_uid_exist" = true ]; then
+					idsearch=$[$idsearch+1]
+				else
+					WEBVPS_ID=$idsearch
+					break
+				fi
+			done
+		fi
+		is_uid_exist=$(_webvps_is_webvps_exist_by_property "uid" "$WEBVPS_ID")
+		if [ "$is_uid_exist" = true ]; then
+			>&2 echo "User uid $WEBVPS_ID already exist"
+			exit 1
+		fi
+		echo "[info] uid used : $WEBVPS_ID"
+
+		# Check if the sshd container running (require to add a user allowing access volumes)
 		WEBVPS_SSH_CONTAINER_ID=$(docker ps --format="{{.ID}}" --filter="name=sshd.webvps")
 		if [ "$WEBVPS_SSH_CONTAINER_ID" = "" ]; then
 			>&2 echo "SSH webvps container missing and required to setup sshd access. Please run the container sshd.webvps"
 			exit 1
 		fi
+
+		# Set env for the webvps
 		WEBVPS_WORKER_UID=$(($WEBVPS_ID+10000))
 		WEBVPS_PORT_SSH=$(($WEBVPS_ID+200))"22"
 		WEBVPS_PORT_MYSQL=$(($WEBVPS_ID+200))"36"
-		if [ -d $HOSTING_SRC/$WEBVPS_NAME ]; then
-			>&2 echo "Webvps $WEBVPS_NAME already exists in filesystem : $HOSTING_SRC/$WEBVPS_NAME"
-			exit 1
+
+		if ! type "nproc" > /dev/null; then
+			cpu_total=1
+		else
+			cpu_total=$(nproc)
 		fi
-		for webvps in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output '.webvps[] | .name'); do
-			if [ $webvps = $WEBVPS_NAME ]; then
-				>&2 echo "Webvps $WEBVPS_NAME already exists in $JSON_DOCKER_PATH"
-				exit 1
-			fi
-		done
+		
 		echo "$WEBVPS_NAME setup"
 
-
-		if [ ! -d $BASEDIR/templates/$WEBVPS_TYPE ]; then
-			>&2 echo "Service template $WEBVPS_TYPE doesn't exist"
-			exit 1
-		fi
+		# Create dir
 		mkdir -p $HOSTING_SRC/$WEBVPS_NAME
 
 		# Create an env file
@@ -156,13 +202,27 @@ case "$1" in
 				export WEBVPS_PORT_MYSQL=$WEBVPS_PORT_MYSQL
 				export WEBVPS_TYPE=$WEBVPS_TYPE
 			EOF
+
+		#### Docker compose 
 		# Create docker-compose and image base
 		ln -s $BASEDIR/templates/base.yml $HOSTING_SRC/$WEBVPS_NAME/base.yml
 		cp $BASEDIR/templates/$WEBVPS_TYPE/$WEBVPS_TYPE-docker-compose.yml $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml
-
-		#### Init volumes
 		is_mysql=$(cat $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml | grep -e "^mysql")
 		is_phpserver=$(cat $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml | grep -e "^phpserver")
+		# Limit resources
+		cpu_shares=128 # If overload, max 12.5% of CPU (fair rule)
+		if [ "$is_phpserver" != "" ]; then
+			cpuset=$(expr $WEBVPS_ID % $cpu_total)
+			mem_limit=1g
+			sed -ri -e "s/%phpserver_cpuset%/$cpuset/" -e "s/%phpserver_cpu_shares%/$cpu_shares/" -e "s/%phpserver_memlimit%/$mem_limit/" $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml
+		fi
+		if [ "$is_mysql" != "" ]; then
+			cpuset=$(expr $(expr $WEBVPS_ID + 1) % $cpu_total) # cpu different of web
+			mem_limit=512m
+			sed -ri -e "s/%mysql_cpuset%/$cpuset/" -e "s/%mysql_cpu_shares%/$cpu_shares/" -e "s/%mysql_memlimit%/$mem_limit/" $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml
+		fi
+
+		#### Init volumes
 		# Is phpserver ?
 		if [ "$is_phpserver" != "" ]; then
 			mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/www/{conf,logs,html,cgi-bin}
