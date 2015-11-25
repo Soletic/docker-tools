@@ -3,7 +3,7 @@
 BASEDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 # Default value
-JSON_DOCKER_WEBVPS='{"webvps": [], "src": "/home/docker/hosting/webvps"}'
+JSON_DOCKER_WEBVPS='{"webvps": [], "src": "$BASEDIR/../webvps"}'
 JSON_DOCKER_PATH=$BASEDIR/webvps.json
 
 # Test if config file exist and load
@@ -84,7 +84,7 @@ function _webvps_is_webvps_exist_by_property {
 
 case "$1" in
 	new)
-		# Usage : new --name|-n soletic --host|-h soletic.org --diskquota|-dq 2000000 --id|-id 1 -s|--service phpserver
+		# Usage : new --name|-n soletic --host|-h soletic.org --host-alias <domaine list comma seperated> --diskquota|-dq 2000000 --id|-id 1 -s|--service phpserver -email <email>
 		while [[ $# > 1 ]] 
 		do
 			key="$1"
@@ -95,6 +95,7 @@ case "$1" in
 					;;
 				-h|--host)
 					WEBVPS_HOST="$2"
+					WEBVPS_HOST_ALIAS="www.$2"
 					shift # past argument
 					;;
 				-dq|--diskquota)
@@ -109,6 +110,14 @@ case "$1" in
 					WEBVPS_TYPE="$2"
 					shift # past argument
 					;;
+				-email)
+					WEBVPS_EMAIL="$2"
+					shift # past argument
+					;;
+				--host-alias)
+					WEBVPS_HOST_ALIAS="$2"
+					shift # past argument
+					;;
 				*)
 					# unknown option
 					shift
@@ -118,6 +127,10 @@ case "$1" in
 		# Check var and requirements
 		if [ -z "$WEBVPS_NAME" ]; then
 			>&2 echo "[new webvps] name missing"
+			exit 1
+		fi
+		if [ -z "$WEBVPS_EMAIL" ]; then
+			>&2 echo "[new webvps] email of client missing"
 			exit 1
 		fi
 		if [ -z "$WEBVPS_HOST" ]; then
@@ -177,6 +190,8 @@ case "$1" in
 
 		# Set env for the webvps
 		WEBVPS_WORKER_UID=$(($WEBVPS_ID+10000))
+		WEBVPS_PORT_HTTP=$(($WEBVPS_ID+200))"80"
+		WEBVPS_PORT_HTTPS=$(($WEBVPS_ID+200))"43"
 		WEBVPS_PORT_SSH=$(($WEBVPS_ID+200))"22"
 		WEBVPS_PORT_MYSQL=$(($WEBVPS_ID+200))"36"
 
@@ -184,6 +199,14 @@ case "$1" in
 			cpu_total=1
 		else
 			cpu_total=$(nproc)
+		fi
+
+		# Set domain list
+		if [ "$WEBVPS_HOST_ALIAS" = "no" ]; then
+			WEBVPS_HOST_ALIAS=""
+			WEBVPS_PROXY_HOSTS=$WEBVPS_HOST
+		else
+			WEBVPS_PROXY_HOSTS="$WEBVPS_HOST,$WEBVPS_HOST_ALIAS"
 		fi
 		
 		echo "$WEBVPS_NAME setup"
@@ -196,11 +219,16 @@ case "$1" in
 				#!/bin/bash
 				export WEBVPS_NAME=$WEBVPS_NAME
 				export WEBVPS_HOST=$WEBVPS_HOST
+				export WEBVPS_HOST_ALIAS=$WEBVPS_HOST_ALIAS
+				export WEBVPS_PROXY_HOSTS=$WEBVPS_PROXY_HOSTS
 				export WEBVPS_ID=$WEBVPS_ID
 				export WEBVPS_WORKER_UID=$WEBVPS_WORKER_UID
+				export WEBVPS_PORT_HTTP=$WEBVPS_PORT_HTTP
+				export WEBVPS_PORT_HTTPS=$WEBVPS_PORT_HTTPS
 				export WEBVPS_PORT_SSH=$WEBVPS_PORT_SSH
 				export WEBVPS_PORT_MYSQL=$WEBVPS_PORT_MYSQL
 				export WEBVPS_TYPE=$WEBVPS_TYPE
+				export WEBVPS_EMAIL=$WEBVPS_EMAIL
 			EOF
 
 		#### Docker compose 
@@ -211,12 +239,13 @@ case "$1" in
 		is_phpserver=$(cat $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml | grep -e "^phpserver")
 		# Limit resources
 		cpu_shares=128 # If overload, max 12.5% of CPU (fair rule)
-		if [ "$is_phpserver" != "" ]; then
+		platform=$(uname)
+		if [ "$is_phpserver" != "" ] && [ "$platform" != "Darwin" ]; then # MacOSX has sed options differents from Ubuntu
 			cpuset=$(expr $WEBVPS_ID % $cpu_total)
 			mem_limit=1g
 			sed -ri -e "s/%phpserver_cpuset%/$cpuset/" -e "s/%phpserver_cpu_shares%/$cpu_shares/" -e "s/%phpserver_memlimit%/$mem_limit/" $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml
 		fi
-		if [ "$is_mysql" != "" ]; then
+		if [ "$is_mysql" != "" ] && [ "$platform" != "Darwin" ]; then # MacOSX has sed options differents from Ubuntu
 			cpuset=$(expr $(expr $WEBVPS_ID + 1) % $cpu_total) # cpu different of web
 			mem_limit=512m
 			sed -ri -e "s/%mysql_cpuset%/$cpuset/" -e "s/%mysql_cpu_shares%/$cpu_shares/" -e "s/%mysql_memlimit%/$mem_limit/" $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml
@@ -238,7 +267,7 @@ case "$1" in
 		fi
 
 		# Add the new webvps in json file
-		echo $JSON_DOCKER_WEBVPS | jq ".webvps |= .+ [{\"name\": \"$WEBVPS_NAME\", \"host\": \"$WEBVPS_HOST\", \"uid\": $WEBVPS_ID, \"diskquota\": $WEBVPS_DISK_QUOTA}]" > $JSON_DOCKER_PATH
+		echo $JSON_DOCKER_WEBVPS | jq ".webvps |= .+ [{\"name\": \"$WEBVPS_NAME\", \"host\": \"$WEBVPS_HOST\", \"host_alias\": \"$WEBVPS_HOST_ALIAS\", \"uid\": $WEBVPS_ID, \"diskquota\": $WEBVPS_DISK_QUOTA, \"email\": \"${WEBVPS_EMAIL}\" }]" > $JSON_DOCKER_PATH
 		
 		# Add sftuser
 		docker exec -it sshd.webvps /chroot.sh adduser -u $WEBVPS_NAME -id $WEBVPS_WORKER_UID
@@ -302,6 +331,81 @@ case "$1" in
 			else
 				docker-compose $1
 			fi
+		done
+		;;
+	list)
+		declare -a tablines
+		declare -a colsizes
+		declare -a colname=("uid" "name" "host" "host_alias" "diskquota" "email")
+		declare -a collabels=( 'UID' 'Name' 'Host' 'Alias' 'Disk space quota' 'Email contact' )
+		for (( i = 0; i < ${#collabels[@]}; i++ )); do
+			colsizes[i]=${#collabels[$i]}
+		done
+		webvps_total=$(echo $JSON_DOCKER_WEBVPS | jq --raw-output '.webvps | length')
+		for (( i = 0; i < $webvps_total; i++ )); do
+			for (( j = 0; j < ${#colname[@]}; j++ )); do
+				jsonkey=${colname[$j]}
+				value=$(echo $JSON_DOCKER_WEBVPS | jq --raw-output ".webvps[$i] | .$jsonkey")
+				if [ ${#value} -gt ${colsizes[$j]} ]; then
+					colsizes[$j]=${#value}
+				fi
+			done
+		done
+		# Print
+		for (( i = 0; i < ${#collabels[@]}; i++ )); do
+			printf "${collabels[$i]}"
+			printf "%"$(expr ${colsizes[$i]} - ${#collabels[$i]} + 4)"s" ""
+		done
+		echo ""
+		for (( vps_i = 0; vps_i < $webvps_total; vps_i++ )); do
+			for (( i = 0; i < ${#collabels[@]}; i++ )); do
+				jsonkey=${colname[$i]}
+				value=$(echo $JSON_DOCKER_WEBVPS | jq --raw-output ".webvps[$vps_i] | .$jsonkey")
+				printf "$value"
+				printf "%"$(expr ${colsizes[$i]} - ${#value} + 4)"s" ""
+			done
+			echo ""
+		done
+		;;
+	info)
+		if [ -z "$2" ]; then
+			>&2 echo "Command usage : $0 info <webvps>"
+			exit 1
+		fi
+		for webvps in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output '.webvps[] | .name'); do
+			if [ "$2" != "$webvps" ]; then
+				continue
+			fi
+			echo "Information for $webvps"
+			echo "======================="
+			container_list=
+			# Env
+			echo "## Environment"
+			. $HOSTING_SRC/$webvps/webvps.env
+			echo "WEBVPS_NAME=$WEBVPS_NAME"
+			echo "WEBVPS_HOST=$WEBVPS_HOST"
+			echo "WEBVPS_HOST_ALIAS=$WEBVPS_HOST_ALIAS"
+			echo "WEBVPS_PROXY_HOSTS=$WEBVPS_PROXY_HOSTS"
+			echo "WEBVPS_ID=$WEBVPS_ID"
+			echo "WEBVPS_WORKER_UID=$WEBVPS_WORKER_UID"
+			echo "WEBVPS_PORT_HTTP=$WEBVPS_PORT_HTTP"
+			echo "WEBVPS_PORT_HTTPS=$WEBVPS_PORT_HTTPS"
+			echo "WEBVPS_PORT_SSH=$WEBVPS_PORT_SSH"
+			echo "WEBVPS_PORT_MYSQL=$WEBVPS_PORT_MYSQL"
+			echo "WEBVPS_TYPE=$WEBVPS_TYPE"
+			echo "WEBVPS_EMAIL=$WEBVPS_EMAIL"
+			
+			# Mysql credentials
+			echo "## Mysql credentials"
+			cat $HOSTING_SRC/$webvps/volumes/www/backup/mysql/credentials
+
+			# SFTP credentials
+			WEBVPS_SSH_CONTAINER_ID=$(docker ps --format="{{.ID}}" --filter="name=sshd.webvps")
+			if [ "$WEBVPS_SSH_CONTAINER_ID" != "" ]; then
+				echo "## SFTP credentials"
+				docker exec -it sshd.webvps bash -c "cat /chroot/$webvps/credentials"
+			fi
+
 		done
 		;;
 	*)

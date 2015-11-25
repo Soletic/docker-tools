@@ -7,7 +7,12 @@ phpserver:
     WORKER_NAME: ${WEBVPS_NAME}
     WORKER_UID: ${WEBVPS_WORKER_UID}
     HOST_DOMAIN_NAME: ${WEBVPS_HOST}
-    VIRTUAL_HOST: ${WEBVPS_HOST},www.${WEBVPS_HOST}
+    HOST_DOMAIN_ALIAS: ${WEBVPS_HOST_ALIAS}
+    VIRTUAL_HOST: ${WEBVPS_PROXY_HOSTS}
+    SERVER_MAIL: ${WEBVPS_EMAIL}
+  ports:
+    - "${WEBVPS_PORT_HTTPS}:443"
+    - "${WEBVPS_PORT_HTTP}:80"
 mysql:
   image: soletic/mysql
   container_name: ${WEBVPS_NAME}.mysql
