@@ -1,7 +1,7 @@
 phpserver:
   extends:
-  	file: base.yml
-  	service: phpserver
+    file: base.yml
+    service: phpserver
   links:
     - mysql:mysql
   cpuset: %phpserver_cpuset%

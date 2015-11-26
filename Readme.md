@@ -40,7 +40,7 @@ The documentation has been written for Ubuntu Trusty.
 Requirements :
 
 * A server with Ubuntu Trusty
-* A user with sudo authorisation (never use the root !)
+* A user with sudo authorisation (never use the root !) and bash as shell
 
 #### Create the hosting directory
 
@@ -49,6 +49,12 @@ We create the hosting directory :
 ```
 $ sudo mkdir -p /home/docker/hosting/webvps
 $ export DOCKER_HOSTING=/home/docker/hosting
+```
+And add the following line in sudo config
+
+```
+$ sudo visudo
+	+ Defaults  env_keep +="DOCKER_HOSTING"
 ```
 
 Don't forget : **Add the export command in the ```~/.profile``` !!!**
@@ -161,7 +167,7 @@ $ sudo docker run -d -p 80:80 -p 443:443 -v $DOCKER_HOSTING/certs:/etc/nginx/cer
 Start the container to expose the ssh service used to access data of others containers
 
 ```
-$ sudo docker run -d -p 2222:22 -v $DOCKER_HOSTING/webvps:/home -e CHROOT_USER_HOME_BASEPATH=/volumes/www --name sshd.webvps --privileged soletic/ssh-webvps
+$ sudo docker run -d -p 2222:22 -v $DOCKER_HOSTING/webvps:/home -e CHROOT_USER_HOME_BASEPATH=/volumes/www -e WORKER_UID=0 --name sshd.webvps --privileged soletic/ssh-webvps
 ```
 
 * option --privileged required to give mount permissions inside the container ([see here >](https://github.com/docker/docker/issues/5254))
@@ -324,6 +330,16 @@ $ docker run --rm -it --entrypoint="" --volumes-from soletic_dev.data soletic/we
 
 ```
 $ dd if=/dev/zero of=file.txt count=5 bs=1M
+```
+
+**Clean your host server**
+
+```
+$ sudo docker rm -f sshd.webvps http-proxy
+$ cd $DOCKER_HOSTING
+$ sudo rm webvps/.sshusers 
+$ sudo rm -Rf webvps/*
+$ sudo rm tools/webvps.json
 ```
 
 # Troubles and limitations

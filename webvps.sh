@@ -1,9 +1,13 @@
 #!/bin/bash
 
 BASEDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+if [ -z "${DOCKER_HOSTING}" ]; then
+        >&2 echo 'ENV var $DOCKER_HOSTING does not exist'
+        exit 1
+fi
 
 # Default value
-JSON_DOCKER_WEBVPS='{"webvps": [], "src": "$BASEDIR/../webvps"}'
+JSON_DOCKER_WEBVPS="{\"webvps\": [], \"src\": \"$DOCKER_HOSTING/webvps\"}"
 JSON_DOCKER_PATH=$BASEDIR/webvps.json
 
 # Test if config file exist and load
@@ -50,7 +54,7 @@ function _refresh {
 function _webvps_getinfo {
 	if [ -z $1 ] || [ -z $2 ]; then
 		>&2 echo "_webvps_getinfo require two arguments : webvps name and key of the info"
-		exit
+		exit 1
 	fi
 	local webvps=$1
 	local key=$2
