@@ -22,8 +22,6 @@ mysql:
     WORKER_NAME: ${WEBVPS_NAME}
   ports:
     - "${WEBVPS_PORT_MYSQL}:3306"
-  cpuset: ${WEBVPS_CPU_MYSQL}
-  cpu_shares: ${WEBVPS_CPU_SHARES}
 ssh:
   image: soletic/sshd
   container_name: ${WEBVPS_NAME}.ssh

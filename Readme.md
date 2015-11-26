@@ -220,6 +220,32 @@ $ sudo tools/webvps.sh up example
 
 The file ```$DOCKER_HOSTING/<webvpsname>/volumes/var/www/backup/mysql/credentials``` stores the credentials of mysql user created.
 
+#### Containers created for a lamp service
+
+**All containers created have a prefix name with the webvps name**. For example with a lamp service :
+
+```
+example.mysql
+example.phpserver
+example.phpmyadmin
+```
+
+To access :
+
+* phpserver : http://example.org
+* phpmyadmin access : http://db.example.org
+
+#### The ssh and sftp access
+
+The webmaster of the VPS can connect with ssh or sftp to access to his www volume (mounted in /home). The port used is the 2222.
+
+```
+$ ssh -p 2222 example@yourhost
+```
+**MySQL connection differences !!!**
+
+The mysql connection is different from his phpserver. He must use a specific port and the private docker host ip. He can find it in the /etc/mysql /my.cnf file.
+
 ### Create your own service
 
 Writing in progress...
@@ -383,6 +409,19 @@ The webmaster of a webvps can't add himself certificates because you have to add
 * Remove certificates from ```/home/docker/hosting/certs```
 * Stop the proxy server, delete it and up again
 
+## SFTP / SSH Access
+
+**wget issue with ssl check certificate**
+
+The webmaster can use the command wet in a ssh session with the common ssh service. If the url's protocol is https, he could have this issue
+
+```
+ERROR: cannot verify fr.wordpress.org's certificate, issued by '/C=US/ST=Arizona/L=Scottsdale/O=GoDaddy.com, Inc./OU=http://certs.godaddy.com/repository//CN=Go Daddy Secure Certificate Authority - G2':
+	Unable to locally verify the issuer's authority.
+```
+
+So follow instructions and use ```--no-check-certificate``` options.
+
 # Documentation
 
 * [Une très bonne introduction à Docker](http://blog.thoward37.me/articles/where-are-docker-images-stored/) pour comprendre sa structuration et vocabulaire
@@ -420,10 +459,18 @@ The webmaster of a webvps can't add himself certificates because you have to add
 * Mettre la doc .md sur un wiki Markdown et accessible sur les deux serveurs ks.
 	* Un wiki markdown PHP : http://wikitten.vizuina.com/
 * Voir pour un mécanisme de restauration facile...
-	* La restauration doit se faire avec la base mysql pour récupérer les comptes utilisateurs et mot de passe 	
+	* La restauration doit se faire avec la base mysql pour récupérer les comptes utilisateurs et mot de passe
+* Résoudre l'issue suivante quand wget dans une session ssh chrooted :
+
+	```
+	ERROR: cannot verify fr.wordpress.org's certificate, issued by '/C=US/ST=Arizona/L=Scottsdale/O=GoDaddy.com, Inc./OU=http://certs.godaddy.com/repository//CN=Go Daddy Secure Certificate Authority - G2':
+	  Unable to locally verify the issuer's authority.
+	```
+
 
 ## Ideas
 
+* A webvps command to change quota
 * Authorise to setup crontab in our phpserver (without lost if rebuild container)
 * [Secure phpMyAdmin container](https://www.digitalocean.com/community/tutorials/how-to-install-and-secure-phpmyadmin-on-ubuntu-14-04)
 * docker tools :

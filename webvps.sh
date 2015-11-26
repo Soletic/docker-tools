@@ -274,8 +274,14 @@ case "$1" in
 		echo $JSON_DOCKER_WEBVPS | jq ".webvps |= .+ [{\"name\": \"$WEBVPS_NAME\", \"host\": \"$WEBVPS_HOST\", \"host_alias\": \"$WEBVPS_HOST_ALIAS\", \"uid\": $WEBVPS_ID, \"diskquota\": $WEBVPS_DISK_QUOTA, \"email\": \"${WEBVPS_EMAIL}\" }]" > $JSON_DOCKER_PATH
 		
 		# Add sftuser
-		docker exec -it sshd.webvps /chroot.sh adduser -u $WEBVPS_NAME -id $WEBVPS_WORKER_UID
+		printf "docker exec -it sshd.webvps /chroot.sh adduser -u $WEBVPS_NAME -id $WEBVPS_WORKER_UID"
+		logchroot=$(docker exec -it sshd.webvps /chroot.sh adduser -u $WEBVPS_NAME -id $WEBVPS_WORKER_UID)
+		printf "\t [DONE]"
+		echo ""
+		printf "docker exec -it sshd.webvps /root/scripts/chroot_init_mysql.sh conf -u $WEBVPS_NAME -P $WEBVPS_PORT_MYSQL"
 		docker exec -it sshd.webvps /root/scripts/chroot_init_mysql.sh conf -u $WEBVPS_NAME -P $WEBVPS_PORT_MYSQL
+		printf "\t [DONE]"
+		echo ""
 
 		# Refresh
 		_refresh $WEBVPS_NAME
