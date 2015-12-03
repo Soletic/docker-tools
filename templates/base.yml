@@ -11,7 +11,6 @@ phpserver:
     HOST_DOMAIN_ALIAS: ${WEBVPS_HOST_ALIAS}
     VIRTUAL_HOST: ${WEBVPS_PROXY_HOSTS}
     SERVER_MAIL: ${WEBVPS_EMAIL}
-  domainname: ${WEBVPS_HOST}
   hostname: ${WEBVPS_HOST}
   ports:
     - "${WEBVPS_PORT_HTTPS}:443"
