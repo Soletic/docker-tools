@@ -3,6 +3,7 @@ phpserver:
   container_name: ${WEBVPS_NAME}.phpserver
   volumes:
     - ./volumes/www:/var/www
+    - ./volumes/home/mail:/home/mail
   environment:
     WORKER_NAME: ${WEBVPS_NAME}
     WORKER_UID: ${WEBVPS_WORKER_UID}
@@ -10,6 +11,8 @@ phpserver:
     HOST_DOMAIN_ALIAS: ${WEBVPS_HOST_ALIAS}
     VIRTUAL_HOST: ${WEBVPS_PROXY_HOSTS}
     SERVER_MAIL: ${WEBVPS_EMAIL}
+  domainname: ${WEBVPS_HOST}
+  hostname: ${WEBVPS_HOST}
   ports:
     - "${WEBVPS_PORT_HTTPS}:443"
     - "${WEBVPS_PORT_HTTP}:80"
@@ -18,8 +21,10 @@ mysql:
   container_name: ${WEBVPS_NAME}.mysql
   volumes:
     - ./volumes/www/backup/mysql:/home/backup
+    - ./volumes/mysql:/var/lib/mysql
   environment:
     WORKER_NAME: ${WEBVPS_NAME}
+    WORKER_UID: ${WEBVPS_WORKER_UID}
   ports:
     - "${WEBVPS_PORT_MYSQL}:3306"
 ssh:

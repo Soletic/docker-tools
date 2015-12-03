@@ -23,6 +23,10 @@ fi
 HOSTING_SRC=$(echo $JSON_DOCKER_WEBVPS | jq --raw-output ".src")
 
 function _setquota {
+	local platform=$(uname)
+	if [ "$platform" = "Darwin" ]; then # No quota with MacOSX
+		return;
+	fi
 	hash setquota 2>/dev/null || { echo >&2 "No quota setup because setquota command missing in your system"; return; }
 	case "$1" in
 		add)
@@ -47,6 +51,9 @@ function _refresh {
 	webvps=$1
 	. $HOSTING_SRC/$webvps/webvps.env
 	chown -R $WEBVPS_WORKER_UID:$WEBVPS_WORKER_UID $HOSTING_SRC/$webvps/volumes/www
+	chown -R $WEBVPS_WORKER_UID:$WEBVPS_WORKER_UID $HOSTING_SRC/$webvps/volumes/home
+	chown -R $WEBVPS_WORKER_UID:$WEBVPS_WORKER_UID $HOSTING_SRC/$webvps/volumes/mysql
+	chgrp -R root $HOSTING_SRC/$webvps/volumes/mysql/mysql	
 	# Fix quota
 	_setquota add $WEBVPS_WORKER_UID $(_webvps_getinfo $webvps "diskquota")
 }
@@ -193,7 +200,12 @@ case "$1" in
 		fi
 
 		# Set env for the webvps
-		WEBVPS_WORKER_UID=$(($WEBVPS_ID+10000))
+		platform=$(uname)
+		if [ "$platform" = "Darwin" ]; then # MacOSX, use current id user because it's impossible with docker-machine to harmonize user id
+			WEBVPS_WORKER_UID=$(id -u)
+		else
+			WEBVPS_WORKER_UID=$(($WEBVPS_ID+10000))
+		fi
 		WEBVPS_PORT_HTTP=$(($WEBVPS_ID+200))"80"
 		WEBVPS_PORT_HTTPS=$(($WEBVPS_ID+200))"43"
 		WEBVPS_PORT_SSH=$(($WEBVPS_ID+200))"22"
@@ -260,20 +272,21 @@ case "$1" in
 		if [ "$is_phpserver" != "" ]; then
 			mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/www/{conf,logs,html,cgi-bin}
 			mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/www/conf/{apache2,certificates}
-			mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/home
+			mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/home/mail
 			cat > $HOSTING_SRC/$WEBVPS_NAME/volumes/www/html/index.html <<-EOF
 					Welcome $WEBVPS_HOST
 				EOF
 		fi
 		# Is mysql ?
 		if [ "$is_mysql" != "" ]; then
-			mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/www/backup/mysql
+			mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/www/backup/mysql $HOSTING_SRC/$WEBVPS_NAME/volumes/mysql
 		fi
 
 		# Add the new webvps in json file
 		echo $JSON_DOCKER_WEBVPS | jq ".webvps |= .+ [{\"name\": \"$WEBVPS_NAME\", \"host\": \"$WEBVPS_HOST\", \"host_alias\": \"$WEBVPS_HOST_ALIAS\", \"uid\": $WEBVPS_ID, \"diskquota\": $WEBVPS_DISK_QUOTA, \"email\": \"${WEBVPS_EMAIL}\" }]" > $JSON_DOCKER_PATH
 		
 		# Add sftuser
+		echo "Setup sftp and ssh access. It can take few minutes, please wait."
 		printf "docker exec -it sshd.webvps /chroot.sh adduser -u $WEBVPS_NAME -id $WEBVPS_WORKER_UID"
 		logchroot=$(docker exec -it sshd.webvps /chroot.sh adduser -u $WEBVPS_NAME -id $WEBVPS_WORKER_UID)
 		printf "\t [DONE]"
