@@ -193,9 +193,9 @@ case "$1" in
 		echo "[info] uid used : $WEBVPS_ID"
 
 		# Check if the sshd container running (require to add a user allowing access volumes)
-		WEBVPS_SSH_CONTAINER_ID=$(docker ps --format="{{.ID}}" --filter="name=sshd.webvps")
+		WEBVPS_SSH_CONTAINER_ID=$(docker ps --format="{{.ID}}" --filter="name=webvps.sshd")
 		if [ "$WEBVPS_SSH_CONTAINER_ID" = "" ]; then
-			>&2 echo "SSH webvps container missing and required to setup sshd access. Please run the container sshd.webvps"
+			>&2 echo "SSH webvps container missing and required to setup sshd access. Please run the container webvps.sshd"
 			exit 1
 		fi
 
@@ -287,12 +287,12 @@ case "$1" in
 		
 		# Add sftuser
 		echo "Setup sftp and ssh access. It can take few minutes, please wait."
-		printf "docker exec -it sshd.webvps /chroot.sh adduser -u $WEBVPS_NAME -id $WEBVPS_WORKER_UID"
-		logchroot=$(docker exec -it sshd.webvps /chroot.sh adduser -u $WEBVPS_NAME -id $WEBVPS_WORKER_UID)
+		printf "docker exec -it webvps.sshd /chroot.sh adduser -u $WEBVPS_NAME -id $WEBVPS_WORKER_UID"
+		logchroot=$(docker exec -it webvps.sshd /chroot.sh adduser -u $WEBVPS_NAME -id $WEBVPS_WORKER_UID)
 		printf "\t [DONE]"
 		echo ""
-		printf "docker exec -it sshd.webvps /root/scripts/chroot_init_mysql.sh conf -u $WEBVPS_NAME -P $WEBVPS_PORT_MYSQL"
-		docker exec -it sshd.webvps /root/scripts/chroot_init_mysql.sh conf -u $WEBVPS_NAME -P $WEBVPS_PORT_MYSQL
+		printf "docker exec -it webvps.sshd /root/scripts/chroot_init_mysql.sh conf -u $WEBVPS_NAME -P $WEBVPS_PORT_MYSQL"
+		docker exec -it webvps.sshd /root/scripts/chroot_init_mysql.sh conf -u $WEBVPS_NAME -P $WEBVPS_PORT_MYSQL
 		printf "\t [DONE]"
 		echo ""
 
@@ -315,9 +315,9 @@ case "$1" in
 		for webvps_loop in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output '.webvps[] | .name'); do
 			if [ "$webvps_loop" = "$webvps" ]; then
 				# Remove sftpuser
-				WEBVPS_SSH_CONTAINER_ID=$(docker ps --format="{{.ID}}" --filter="name=sshd.webvps")
+				WEBVPS_SSH_CONTAINER_ID=$(docker ps --format="{{.ID}}" --filter="name=webvps.sshd")
 				if [ "$WEBVPS_SSH_CONTAINER_ID" != "" ]; then
-					docker exec -it sshd.webvps /chroot.sh deluser -u $webvps
+					docker exec -it webvps.sshd /chroot.sh deluser -u $webvps
 				fi
 		
 				cd $HOSTING_SRC/$webvps;
@@ -423,10 +423,10 @@ case "$1" in
 			cat $HOSTING_SRC/$webvps/volumes/www/backup/mysql/credentials
 
 			# SFTP credentials
-			WEBVPS_SSH_CONTAINER_ID=$(docker ps --format="{{.ID}}" --filter="name=sshd.webvps")
+			WEBVPS_SSH_CONTAINER_ID=$(docker ps --format="{{.ID}}" --filter="name=webvps.sshd")
 			if [ "$WEBVPS_SSH_CONTAINER_ID" != "" ]; then
 				echo "## SFTP credentials"
-				docker exec -it sshd.webvps bash -c "cat /chroot/$webvps/credentials"
+				docker exec -it webvps.sshd bash -c "cat /chroot/$webvps/credentials"
 			fi
 
 		done
