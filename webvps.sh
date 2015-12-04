@@ -303,6 +303,9 @@ case "$1" in
 	refresh)
 		# Refresh informations and setting for all webvps. Useful to fix problems
 		for webvps in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output '.webvps[] | .name'); do
+			if [ ! -z "$2" ] && [ "$2" != "$webvps" ]; then
+				continue
+			fi
 			_refresh $webvps
 		done
 		;;

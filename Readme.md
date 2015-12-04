@@ -296,7 +296,28 @@ The mysql image contains a automysqlbackup script. The bash script is launched b
 
 #### Rsync
 
-Configure the server with another server to rsync the ```$DOCKER_HOSTING```
+Configure the server with another server to rsync the ```$DOCKER_HOSTING```. Command example to keep owner, group and permissions of every files :
+
+```
+$ rsync -aogpz --delete-after --password-file=/home/vps-01/credentials backup@vps-01.soletic.org::docker /home/vps-01/docker-hosting
+```
+
+* Launch the command from you backup server
+* Create a user in your docker server and put credentials in a credential file
+* Set up the rsync configuration in your docker server :
+
+	```
+	log file = /var/log/rsync.log
+	read only = yes
+	list = yes
+	uid = root
+	gid = root
+	hosts allow = <backup_server_ip>/32
+
+	[docker]
+	path = /home/docker/hosting
+	exclude = volumes/mysql
+	```
 
 #### Docker repository (à écrire)
 
@@ -304,9 +325,27 @@ This article is interesting to play with commit and tag : http://stackoverflow.c
 
 Useful to rollback if an error occured.
 
-### Restore (à écrire)
+### Restore
 
-Writing in progress...
+* Stop backup
+* Install the docker server as the first time :
+	* Without [Building based docker images](https://github.com/Soletic/docker-tools#run-a-stack-of-required-containers)
+	* Without running [the stack of required containers](https://github.com/Soletic/docker-tools#run-a-stack-of-required-containers)
+* Rsync the $DOCKER_HOSTING directory from the backup server
+* Build based docker images
+
+	```
+	$ sudo $DOCKER_HOSTING/tools/install_soletic_image.sh
+	```
+
+* Run [the stack of required containers](https://github.com/Soletic/docker-tools#run-a-stack-of-required-containers)
+* Start all webvps
+
+	```
+	$ sudo $DOCKER_HOSTING/tools/webvps.sh up
+	```
+
+* Import database backup for each webvps having a mysql container with the last backup in the ```volumes/www/backup/mysql/daily``` directory of every webvps
 
 ## Upgrade and security management
 
@@ -338,7 +377,7 @@ $ sudo ./tools/install_soletic_image.sh
 And recreate webvps
 
 ```
-$ ./tools/webvps recreate
+$ sudo ./tools/webvps.sh recreate
 ```
 
 You can't apply this method in these cases if new volumes has been added in the based image or if you want to mount a new volume from host.
@@ -477,21 +516,20 @@ So follow instructions and use ```--no-check-certificate``` options.
 
 ## Roadmap
 
-* Migrer soletic.org et owncloud
-* Relancer automatiquement les containers au démarrage
-* Stratégie de backup
-	* rsync de /path/to/hosting pour redéploiement rapide
-		* Conserver les owner dans le rsync
-		* Exclure le dossier de base de données
+* Migrer owncloud et partaj (et tester un deloy)
 * Mettre la doc .md sur un wiki Markdown et accessible sur les deux serveurs ks.
 	* Un wiki markdown PHP : http://wikitten.vizuina.com/
-* Voir pour un mécanisme de restauration facile...
-	* La restauration doit se faire avec la base mysql pour récupérer les comptes utilisateurs	 et mot de passe
-	* Documenter une restauration
-* mysql restore : Créer un programme de restauration de bdd (qui sera lancé via [docker-run](https://github.com/iTech-Developer/docker-run))
+	* Ou en django : http://waliki.pythonanywhere.com/
+	* Liste de tous les wikis
 
 ## Ideas
 
+* Relancer automatiquement les containers au démarrage
+	* https://docs.docker.com/engine/articles/host_integration/
+	* http://doc.ubuntu-fr.org/upstart 	
+* Voir pour un mécanisme de restauration facile...
+	* La restauration doit se faire avec la base mysql pour récupérer les comptes utilisateurs	 et mot de passe
+	* un program mysql restore (qui sera lancé via [docker-run](https://github.com/iTech-Developer/docker-run))
 * Improve phpserver and mailer to catch signal if container stopped to clean properly (finish send mails)
 * Add capability inside common SSH container to send email
 * Write a howto for webmaster of webvps
