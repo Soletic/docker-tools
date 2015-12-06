@@ -367,6 +367,10 @@ case "$1" in
 				docker-compose build --no-cache 
 				docker-compose up -d --force-recreate
 				_refresh $webvps
+				if [ "$is_mysql" != "" ]; then
+					# Set mysql IP in sfto container for this webvps
+					_webvps_set_mysql_ssh_service "$webvps"
+				fi
 			else
 				docker-compose $1
 				if [ "$1" = "start" ] && [ "$is_mysql" != "" ]; then
