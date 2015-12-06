@@ -356,7 +356,7 @@ case "$1" in
 			cd $HOSTING_SRC/$webvps;
 			is_mysql=$(cat $HOSTING_SRC/$webvps/docker-compose.yml | grep -e "^mysql")
 			if [ "$1" = "up" ]; then
-				#docker-compose up -d
+				docker-compose up -d
 				if [ "$is_mysql" != "" ]; then
 					# Set mysql IP in sfto container for this webvps
 					_webvps_set_mysql_ssh_service "$webvps"
