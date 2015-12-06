@@ -398,6 +398,12 @@ And recreate webvps
 $ sudo ./tools/webvps.sh recreate
 ```
 
+And upgrade all user account in the common ssh/sftp service
+
+```
+$ sudo docker exec -it webvps.sshd bash -c '/chroot.sh binupgrade'
+```
+
 You can't apply this method in these cases if new volumes has been added in the based image or if you want to mount a new volume from host.
 
 ```
@@ -547,9 +553,9 @@ So follow instructions and use ```--no-check-certificate``` options.
 	* https://docs.docker.com/engine/articles/host_integration/
 	* http://doc.ubuntu-fr.org/upstart
 	* Attention : il faut relancer avec webvps.sh de façon que l'IP de chaque container MySQL soit ien rafraichit dans le container commun SSH/SFTP
-* Voir pour un mécanisme de restauration facile...
-	* La restauration doit se faire avec la base mysql pour récupérer les comptes utilisateurs	 et mot de passe
-	* un program mysql restore (qui sera lancé via [docker-run](https://github.com/iTech-Developer/docker-run))
+* Créer un programme d'upgrade de chaque compte ssh/sftp pour reprendre les mises à jour des paquets
+* Créer un programme mysql de restauration reprenant le dernier backup fait par automysqlbackup
+	* [docker-run](https://github.com/iTech-Developer/docker-run))
 * Improve phpserver and mailer to catch signal if container stopped to clean properly (finish send mails)
 * Add capability inside common SSH container to send email
 * Write a howto for webmaster of webvps
