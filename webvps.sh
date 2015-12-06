@@ -93,6 +93,20 @@ function _webvps_is_webvps_exist_by_property {
 	echo false
 }
 
+# Set the configuration for mysql connection in the sftp/ssh service for a webvps
+function _webvps_set_mysql_ssh_service {
+	local webvps=$1
+	local port=$2
+	local mysql_container_name=$3
+
+	# Check if container exist
+	container_ip=$(docker inspect -f '{{ .NetworkSettings.IPAddress }}' "${webvps}.mysql")
+	printf "docker exec -it webvps.sshd /root/scripts/chroot_init_mysql.sh conf -u $webvps -P 3306 -ip $container_ip"
+	docker exec -it webvps.sshd /root/scripts/chroot_init_mysql.sh conf -u $webvps -P 3306 -ip $container_ip
+	printf "\t [DONE]"
+	echo ""
+}
+
 case "$1" in
 	new)
 		# Usage : new --name|-n soletic --host|-h soletic.org --host-alias <domaine list comma seperated> --diskquota|-dq 2000000 --id|-id 1 -s|--service phpserver -email <email>
@@ -291,10 +305,6 @@ case "$1" in
 		logchroot=$(docker exec -it webvps.sshd /chroot.sh adduser -u $WEBVPS_NAME -id $WEBVPS_WORKER_UID)
 		printf "\t [DONE]"
 		echo ""
-		printf "docker exec -it webvps.sshd /root/scripts/chroot_init_mysql.sh conf -u $WEBVPS_NAME -P $WEBVPS_PORT_MYSQL"
-		docker exec -it webvps.sshd /root/scripts/chroot_init_mysql.sh conf -u $WEBVPS_NAME -P $WEBVPS_PORT_MYSQL
-		printf "\t [DONE]"
-		echo ""
 
 		# Refresh
 		_refresh $WEBVPS_NAME
@@ -328,7 +338,7 @@ case "$1" in
 				docker-compose rm -f
 				rm -Rf $HOSTING_SRC/$webvps
 				echo $JSON_DOCKER_WEBVPS | jq "del(.webvps[$i])" > $JSON_DOCKER_PATH
-				echo "$webvps remove (but not associated image)"
+				echo "$webvps remove. If images have been built by docker-compose, you have to remove it manualy"
 				exit
 			fi 
 			((i+=1))
@@ -344,10 +354,13 @@ case "$1" in
 			echo "=============="
 			. $HOSTING_SRC/$webvps/webvps.env
 			cd $HOSTING_SRC/$webvps;
+			is_mysql=$(cat $HOSTING_SRC/$webvps/docker-compose.yml | grep -e "^mysql")
 			if [ "$1" = "up" ]; then
-				docker-compose up -d
-				# Create user in the chroot ssh
-
+				#docker-compose up -d
+				if [ "$is_mysql" != "" ]; then
+					# Set mysql IP in sfto container for this webvps
+					_webvps_set_mysql_ssh_service "$webvps"
+				fi
 			elif [ "$1" = "recreate" ]; then
 				docker-compose stop
 				docker-compose rm -f
@@ -356,6 +369,10 @@ case "$1" in
 				_refresh $webvps
 			else
 				docker-compose $1
+				if [ "$1" = "start" ] && [ "$is_mysql" != "" ]; then
+					# Set mysql IP in sfto container for this webvps
+					_webvps_set_mysql_ssh_service "$webvps"
+				fi
 			fi
 		done
 		;;

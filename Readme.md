@@ -274,9 +274,6 @@ The webmaster of the VPS can connect with ssh or sftp to access to his www volum
 ```
 $ ssh -p 2222 example@yourhost
 ```
-**MySQL connection differences !!!**
-
-The mysql connection is different from his phpserver. He must use a specific port and the private docker host ip. He can find it in the /etc/mysql /my.cnf file.
 
 **No mail function !!**
 
@@ -301,6 +298,8 @@ Configure the server with another server to rsync the ```$DOCKER_HOSTING```. Com
 ```
 $ rsync -aogpz --delete-after --password-file=/home/vps-01/credentials backup@vps-01.soletic.org::docker /home/vps-01/docker-hosting
 ```
+
+**vps-01** is an example, your internal server name
 
 * Launch the command from you backup server
 * Create a user in your docker server and put credentials in a credential file
@@ -332,6 +331,25 @@ Useful to rollback if an error occured.
 	* Without [Building based docker images](https://github.com/Soletic/docker-tools#run-a-stack-of-required-containers)
 	* Without running [the stack of required containers](https://github.com/Soletic/docker-tools#run-a-stack-of-required-containers)
 * Rsync the $DOCKER_HOSTING directory from the backup server
+
+	```
+	# All the directory
+	$ sudo rsync -aogpz root@vps-01-backup.soletic.org:/home/vps-01/docker-hosting/ $DOCKER_HOSTING
+	# A specific webvps
+	$ sudo rsync -aogpz root@vps-01-backup.soletic.org:/home/vps-01/docker-hosting/webvps/example $DOCKER_HOSTING/webvps
+	```
+
+	**vps-01** is an example, your internal server name.
+	If you restore a specific webvps, don't forget (if necessary) to 
+	
+	* add it as a user in the sftp/ssh common service.
+	* setup quota and permissions :
+	
+		```
+		$ $DOCKER_HOSTING/tools/webvps refresh <webvps_name>
+	
+		```
+
 * Build based docker images
 
 	```
@@ -524,9 +542,11 @@ So follow instructions and use ```--no-check-certificate``` options.
 
 ## Ideas
 
+* Améliorer webvps.sh pour fonctionner sous forme de plugins permettant d'ajouter des types de service créés par d'autres
 * Relancer automatiquement les containers au démarrage
 	* https://docs.docker.com/engine/articles/host_integration/
-	* http://doc.ubuntu-fr.org/upstart 	
+	* http://doc.ubuntu-fr.org/upstart
+	* Attention : il faut relancer avec webvps.sh de façon que l'IP de chaque container MySQL soit ien rafraichit dans le container commun SSH/SFTP
 * Voir pour un mécanisme de restauration facile...
 	* La restauration doit se faire avec la base mysql pour récupérer les comptes utilisateurs	 et mot de passe
 	* un program mysql restore (qui sera lancé via [docker-run](https://github.com/iTech-Developer/docker-run))
