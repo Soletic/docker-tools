@@ -105,6 +105,10 @@ $ curl -L https://github.com/docker/compose/releases/download/1.5.0/docker-compo
 $ chmod +x /usr/local/bin/docker-compose
 ```
 
+#### Install jq
+
+Install jq package to query and modify json file.
+
 #### Move docker data (optionnal)
 
 If the partition's size /var/lib/docker is smaller than your /home, we can move it following this instructions
@@ -124,7 +128,7 @@ $ sudo service docker start
 Install our tools suite for docker management :
 
 ```
-$ cd /path/to/hosting
+$ cd $DOCKER_HOSTING
 $ sudo git clone https://github.com/Soletic/docker-tools.git ./tools
 $ sudo chmod u+x ./tools/*.sh
 $ sudo ./tools/install_soletic_image.sh
@@ -500,6 +504,16 @@ The webmaster of a webvps can't add himself certificates because you have to add
 
 * [optional] If you have trusted certificates signed, copy the *.key and *.crt in directory ```www/conf/certificates```. The file name have to the same of the host domaine !
 * Copy this files in the certs directory of the proxy
+
+	```
+	Quand on utilise StartSSL, il demande d'installer un fichier sub.class1.server.ca.pem avec la configuration suivante (pour apache) :
+	SSLCertificateChainFile /var/www/conf/certificates/sub.class1.server.ca.pem
+	
+	Pour le proxy Nginx, il faut concaténer au au certificat signé :
+	$ cd $DOCKER_HOSTING/certs
+	$ cat sub.class1.server.ca.pem >> <domain>.crt 
+	```
+
 * In directory ```www/conf``` create the file ```apache.reload``` to force reload of apache (max one minute to reload)
 * Restart the http proxy container
 
@@ -572,6 +586,7 @@ So follow instructions and use ```--no-check-certificate``` options.
 * Créer une registry Docker propre à Sol&TIC [tuto ici >](https://blog.docker.com/2013/07/how-to-use-your-own-registry/). Permettrait de faire du backup...
 * Créer un soletic/wordpress
 * Créer un soletic/yunohost
+* Finaliser le soletic/owncloud
 * Certificat auto généré sur phpserver ne fonctionne pas sur domaine ET sous domaine
 	* [Voir le tuto initialement suivi](http://blog.endpoint.com/2014/10/openssl-csr-with-alternative-names-one.html) 
 	* Fichier concerné : [start-apache2.sh](https://github.com/Soletic/hosting-docker-phpserver/blob/master/start-apache2.sh)

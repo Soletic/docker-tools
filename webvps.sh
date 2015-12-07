@@ -216,7 +216,7 @@ case "$1" in
 		# Set env for the webvps
 		platform=$(uname)
 		if [ "$platform" = "Darwin" ]; then # MacOSX, use current id user because it's impossible with docker-machine to harmonize user id
-			WEBVPS_WORKER_UID=$(id -u)
+			WEBVPS_WORKER_UID=1000 # $(id -u)
 		else
 			WEBVPS_WORKER_UID=$(($WEBVPS_ID+10000))
 		fi
@@ -279,6 +279,12 @@ case "$1" in
 			cpuset=$(expr $(expr $WEBVPS_ID + 1) % $cpu_total) # cpu different of web
 			mem_limit=512m
 			sed -ri -e "s/%mysql_cpuset%/$cpuset/" -e "s/%mysql_cpu_shares%/$cpu_shares/" -e "s/%mysql_memlimit%/$mem_limit/" $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml
+		fi
+
+		# MacOSX 
+		if [ "$platform" = "Darwin" ]; then
+			sed -E -i '' "/.+cpu.+[%\"]$/d"  $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml
+			sed -E -i '' "/.+mem.+[%\"]$/d"  $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml
 		fi
 
 		#### Init volumes
