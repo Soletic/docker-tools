@@ -350,7 +350,7 @@ Useful to rollback if an error occured.
 	* setup quota and permissions :
 	
 		```
-		$ $DOCKER_HOSTING/tools/webvps refresh <webvps_name>
+		$ $DOCKER_HOSTING/tools/webvps.sh refresh <webvps_name>
 	
 		```
 
@@ -394,7 +394,7 @@ All images has been built with ubunty:trusty. To update packages of all running 
 
 ```
 $ cd $DOCKER_HOSTING
-$ sudo ./tools/install_soletic_image.sh
+$ sudo ./tools/install_soletic_image.sh --no-cache
 ```
 And recreate webvps
 
@@ -464,18 +464,21 @@ $ dd if=/dev/zero of=file.txt count=5 bs=1M
 **Clean your host server**
 
 ```
-$ sudo docker rm -f sshd.webvps http-proxy
+$ sudo docker rm -f webvps.sshd webvps.mailer http-proxy
 $ cd $DOCKER_HOSTING
+$ sudo ./tools/webvps.sh stop
+$ sudo ./tools/webvps.sh rm
 $ sudo rm webvps/.sshusers 
 $ sudo rm -Rf webvps/*
 $ sudo rm tools/webvps.json
+
 ```
 
 # Troubles and limitations
 
 ## MacosX
 
-Docker compose doesn't work !
+Docker compose doesn't work on Mavericks.
 
 ## Container size limit
 
@@ -562,6 +565,8 @@ So follow instructions and use ```--no-check-certificate``` options.
 
 ## Ideas
 
+* Trouver comment automatiser le build des iamges soletic sur le hub de docker
+* Demander confirmation sur commandes webvps.sh rm|up|start|recreate|... sans vps de préciser.
 * Améliorer webvps.sh pour fonctionner sous forme de plugins permettant d'ajouter des types de service créés par d'autres
 * Relancer automatiquement les containers au démarrage
 	* https://docs.docker.com/engine/articles/host_integration/
@@ -571,6 +576,9 @@ So follow instructions and use ```--no-check-certificate``` options.
 * Créer un programme mysql de restauration reprenant le dernier backup fait par automysqlbackup
 	* [docker-run](https://github.com/iTech-Developer/docker-run))
 * Improve phpserver and mailer to catch signal if container stopped to clean properly (finish send mails)
+* Implémenter un mécanisme permettant de créer un VPS avec une image d'une certaine version (par exemple une image de phpserver contenant php en version 5.5).
+	* Cas 1 : si c'est pour une app ayant besoin d'une forte personnalisation de ses containers, il faut mieux lui créeer son propre service VPS
+	* Cas 2 : si c'est pour proposer une déclinaison d'une techno (par exemple PHP 5.4, 5.5, 5.6, 7, ...) il faut jouer avec les tags sur les images construites et donc implémenter la gestion des tags dans les scripts webvps.sh et install_soletic_images.sh (le latest étant la branche master du dépôt Git)
 * Add capability inside common SSH container to send email
 * Write a howto for webmaster of webvps
 	* Connect as ssh/sftp
@@ -590,6 +598,7 @@ So follow instructions and use ```--no-check-certificate``` options.
 * Certificat auto généré sur phpserver ne fonctionne pas sur domaine ET sous domaine
 	* [Voir le tuto initialement suivi](http://blog.endpoint.com/2014/10/openssl-csr-with-alternative-names-one.html) 
 	* Fichier concerné : [start-apache2.sh](https://github.com/Soletic/hosting-docker-phpserver/blob/master/start-apache2.sh)
+* Débuguer ./tools/sizeinfo.sh
 
 ## Contribution process
 
