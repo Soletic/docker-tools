@@ -266,7 +266,7 @@ case "$1" in
 		ln -s $BASEDIR/templates/base.yml $HOSTING_SRC/$WEBVPS_NAME/base.yml
 		cp $BASEDIR/templates/$WEBVPS_TYPE/$WEBVPS_TYPE-docker-compose.yml $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml
 		is_mysql=$(cat $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml | grep -e "^mysql")
-		is_phpserver=$(cat $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml | grep -e "^phpserver")
+		is_phpserver=$(cat $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml | grep -e "phpserver")
 		# Limit resources
 		cpu_shares=128 # If overload, max 12.5% of CPU (fair rule)
 		platform=$(uname)
