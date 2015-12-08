@@ -14,6 +14,21 @@ if [ ! -d $DOCKER_HOSTING/src ]; then
 	mkdir $DOCKER_HOSTING/src
 fi
 
+build_with_cache=true
+while [[ $# > 1 ]] 
+do
+	key="$1"
+	case $key in
+		--no-cache)
+			build_with_cache=false
+			;;
+		*)
+			# unknown option
+			shift
+			;;
+	esac
+done
+
 cd $DOCKER_HOSTING
 for repo in "${repos[@]}"
 do
@@ -34,8 +49,8 @@ do
 	done
 	name=$(echo "$repo" | sed -e "s/hosting-docker-//g")
 	if [ $is_pull -eq 0 ]; then
-		docker build -t soletic/$name ./src/$repo
+		docker build -t soletic/$name --no-cache=${build_with_cache} ./src/$repo
 	else
-		docker build --pull -t soletic/$name ./src/$repo
+		docker build --pull -t soletic/$name --no-cache=${build_with_cache} ./src/$repo
 	fi
 done
