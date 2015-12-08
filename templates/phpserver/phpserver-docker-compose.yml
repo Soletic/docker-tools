@@ -2,7 +2,7 @@ phpserver:
   extends:
   	file: base.yml
   	service: phpserver
-  cpuset: %phpserver_cpuset%
+  cpuset: "%phpserver_cpuset%"
   cpu_shares: %phpserver_cpu_shares%
   mem_limit: %phpserver_memlimit%
   memswap_limit: %phpserver_memlimit%

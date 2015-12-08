@@ -1,10 +1,10 @@
 wikitten:
   extends:
-  	file: base.yml
-  	service: phpserver
+    file: base.yml
+    service: phpserver
   container_name: ${WEBVPS_NAME}.wikitten
   image: soletic/wikitten:latest
-  cpuset: %phpserver_cpuset%
+  cpuset: "%phpserver_cpuset%"
   cpu_shares: %phpserver_cpu_shares%
   mem_limit: %phpserver_memlimit%
   memswap_limit: %phpserver_memlimit%
