@@ -1,6 +1,6 @@
 #!/bin/bash
 
-repos=("hosting-docker-ubuntu" "hosting-docker-mailer-webvps" "hosting-docker-phpserver" "hosting-docker-mysql" "hosting-docker-phpmyadmin" "hosting-docker-sshd" "hosting-docker-ssh-chroot" "hosting-docker-ssh-webvps" "hosting-docker-wikitten")
+repos=("hosting-docker-ubuntu" "hosting-docker-mailer-webvps" "hosting-docker-phpserver" "hosting-docker-mysql" "hosting-docker-phpmyadmin" "hosting-docker-sshd" "hosting-docker-ssh-chroot" "hosting-docker-ssh-webvps" "hosting-docker-wikitten" "hosting-docker-redmine")
 repos_with_pull=("hosting-docker-ubuntu")
 
 if [ -z "$DOCKER_HOSTING" ]; then
