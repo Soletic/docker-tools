@@ -30,8 +30,14 @@ function _lamp_remove {
 
 function _lamp_after_start {
 	local webvps=$1
+	if [ "${webvps}" = "" ]; then
+		>&2 echo "$0 : missing vps name as first argument. Usage : $0 <vpsname>"
+		exit 1
+	fi
+
 	_phpserver_after_start "$webvps"
 	_mysql_after_start "$webvps"
+	_webvps_ssh_chroot_up_mysql "webvps.sshd" "$webvps"
 }
 
 function _lamp_print_credentials {

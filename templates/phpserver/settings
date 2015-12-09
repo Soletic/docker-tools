@@ -71,12 +71,7 @@ function _phpserver_remove {
 }
 
 function _phpserver_after_start {
-	local webvps=$1
-	if [ "${webvps}" = "" ]; then
-		>&2 echo "$0 : missing vps name as first argument. Usage : $0 <vpsname>"
-		exit 1
-	fi
-	_webvps_ssh_chroot_up_mysql "webvps.sshd" "$webvps"
+	:
 }
 
 function _phpserver_print_credentials {
