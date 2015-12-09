@@ -15,12 +15,16 @@ if [ ! -d $DOCKER_HOSTING/src ]; then
 fi
 
 build_with_no_cache=false
+build_with_pull=true
 while [[ $# > 1 ]] 
 do
 	key="$1"
 	case $key in
 		--no-cache)
 			build_with_no_cache=true
+			;;
+		--no-pull)
+			build_with_pull=false
 			;;
 		*)
 			# unknown option
@@ -49,7 +53,7 @@ do
 	done
 	name=$(echo "$repo" | sed -e "s/hosting-docker-//g")
 	echo "## docker build -t soletic/$name --no-cache=${build_with_cache} ./src/$repo"
-	if [ $is_pull -eq 0 ]; then
+	if [ $is_pull -eq 0 ] || [ "$build_with_pull" = "false" ]; then
 		docker build -t soletic/$name --no-cache=${build_with_no_cache} ./src/$repo
 	else
 		docker build --pull -t soletic/$name --no-cache=${build_with_no_cache} ./src/$repo
