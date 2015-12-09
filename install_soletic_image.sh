@@ -16,21 +16,18 @@ fi
 
 build_with_no_cache=false
 build_with_pull=true
-while [[ $# > 1 ]] 
-do
-	key="$1"
-	case $key in
-		--no-cache)
-			build_with_no_cache=true
-			;;
-		--no-pull)
-			build_with_pull=false
-			;;
-		*)
-			# unknown option
-			shift
-			;;
-	esac
+for i in "$@"; do
+case $i in
+	--no-cache)
+		build_with_no_cache=true
+		;;
+	--no-pull)
+		build_with_pull=false
+		;;
+	*)
+		# unknown option
+		;;
+esac
 done
 
 cd $DOCKER_HOSTING
