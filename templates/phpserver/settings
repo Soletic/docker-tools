@@ -1,0 +1,90 @@
+#!/bin/bash
+
+if [ -z "${BASEDIR}" ] || [ "{$BASEDIR}" = "" ]; then
+    >&2 echo "\$BASEDIRE missing"
+    exit 1
+fi
+
+function _phpserver_setup {
+
+	local webvps=$1
+	if [ "${webvps}" = "" ]; then
+		>&2 echo "$0 : missing vps name as first argument. Usage : $0 <vpsname>"
+		exit 1
+	fi
+	if [ ! -d $HOSTING_SRC/$webvps ]; then
+		>&2 echo "$0 : directory $HOSTING_SRC/$webvps doesn't exist"
+		exit 1
+	fi
+
+	source $HOSTING_SRC/$webvps/webvps.env
+
+	# Init volumes
+	mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/www/{conf,logs,html,cgi-bin}
+	mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/www/conf/{apache2,certificates}
+	mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/home/mail
+	cat > $HOSTING_SRC/$WEBVPS_NAME/volumes/www/html/index.html <<-EOF
+			Welcome $WEBVPS_HOST
+		EOF
+
+	# Add ssh chrooted user
+	local container_id=$(docker ps --format="{{.ID}}" --filter="name=webvps.sshd")
+	if [ "$container_id" != "" ]; then
+		_webvps_ssh_chroot_add_user "webvps.sshd" "${WEBVPS_NAME}" "${WEBVPS_WORKER_UID}"
+	fi
+}
+
+function _phpserver_refresh {
+	
+	local webvps=$1
+	if [ "${webvps}" = "" ]; then
+		>&2 echo "$0 : missing vps name as first argument. Usage : $0 <vpsname>"
+		exit 1
+	fi
+
+	source $HOSTING_SRC/$webvps/webvps.env
+
+	# Refresh permissions file on volume
+	if [ "$(uname)" != "Darwin" ]; then
+		chown -R $WEBVPS_WORKER_UID:$WEBVPS_WORKER_UID $HOSTING_SRC/$webvps/volumes/www
+		chown -R $WEBVPS_WORKER_UID:$WEBVPS_WORKER_UID $HOSTING_SRC/$webvps/volumes/home
+	fi
+
+}
+
+function _phpserver_remove {
+
+	local webvps=$1
+	if [ "${webvps}" = "" ]; then
+		>&2 echo "$0 : missing vps name as first argument. Usage : $0 <vpsname>"
+		exit 1
+	fi
+
+	source $HOSTING_SRC/$webvps/webvps.env
+
+	# Remove ssh chrooted user
+	local container_id=$(docker ps --format="{{.ID}}" --filter="name=webvps.sshd")
+	if [ "$container_id" != "" ]; then
+		_webvps_ssh_chroot_remove_user "webvps.sshd" "${WEBVPS_NAME}"
+	fi
+
+}
+
+function _phpserver_after_start {
+	local webvps=$1
+	if [ "${webvps}" = "" ]; then
+		>&2 echo "$0 : missing vps name as first argument. Usage : $0 <vpsname>"
+		exit 1
+	fi
+	_webvps_ssh_chroot_up_mysql "webvps.sshd" "$webvps"
+}
+
+function _phpserver_print_credentials {
+	local webvps=$1
+	# SFTP credentials
+	WEBVPS_SSH_CONTAINER_ID=$(docker ps --format="{{.ID}}" --filter="name=webvps.sshd")
+	if [ "$WEBVPS_SSH_CONTAINER_ID" != "" ]; then
+		echo "## SFTP credentials"
+		docker exec -it webvps.sshd bash -c "cat /chroot/$webvps/credentials"
+	fi
+}

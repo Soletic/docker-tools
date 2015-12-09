@@ -1,0 +1,150 @@
+#!/bin/bash
+
+function _webvps_get_cpu_total {
+	if ! type "nproc" > /dev/null; then
+		local cpu_total=1
+	else
+		local cpu_total=$(nproc)
+	fi
+	echo $cpu_total
+}
+
+function _webvps_setquota {
+	local platform=$(uname)
+	if [ "$platform" = "Darwin" ]; then # No quota with MacOSX
+		return;
+	fi
+	hash setquota 2>/dev/null || { echo >&2 "No quota setup because setquota command missing in your system"; return; }
+	case "$1" in
+		add)
+			# Convert because size could be scientific notation
+			printf -v size "%.f" "$3"
+			setquota -u $2 $size $size 1000000 1000000 -a
+			;;
+		remove)
+			setquota -u $2 0 0 0 0 -a
+			;;
+		*)
+			echo "invalid _webvps_setquota calling : _webvps_setquota add|remove <uid> <blockquota>"
+			return
+			;;
+	esac
+	echo "Quota for $2"
+	repquota -a | grep ^#$2
+}
+
+function _webvps_refresh {
+	
+	webvps=$1
+	source $HOSTING_SRC/$webvps/webvps.env
+
+	# Refresh with plugin
+	source $BASEDIR/templates/${WEBVPS_TYPE}/settings
+	_${WEBVPS_TYPE}_refresh "${webvps}"
+
+	# Fix quota
+	_webvps_setquota add $WEBVPS_WORKER_UID $(_webvps_getinfo $webvps "diskquota")
+}
+
+function _webvps_getinfo {
+	if [ -z $1 ] || [ -z $2 ]; then
+		>&2 echo "_webvps_getinfo require two arguments : webvps name and key of the info"
+		exit 1
+	fi
+	local webvps=$1
+	local key=$2
+	local i=0
+	for webvps_loop in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output '.webvps[] | .name'); do
+		if [ "$webvps_loop" = "$webvps" ]; then
+			echo $(echo $JSON_DOCKER_WEBVPS | jq --raw-output ".webvps[$i] | .$key")
+		fi 
+		((i+=1))
+	done
+	echo ""
+}
+
+# Check is a webvps as a property with specific value
+function _webvps_is_webvps_exist_by_property {
+	if [ -z $1 ] || [ -z $2 ]; then
+		>&2 echo "_webvps_is_exist require two arguments : <property> and <value>"
+		exit
+	fi
+	local property=$1
+	local value=$2
+	local i=0
+	for property_value in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output ".webvps[] | .$property"); do
+		if [ "$property_value" = "$value" ]; then
+			echo true
+			return
+		fi 
+	done
+	echo false
+}
+
+# Set the configuration for mysql connection in the sftp/ssh service for a webvps
+function _webvps_ssh_chroot_up_mysql {
+
+	local container_name=$1
+	local webvps=$2
+
+	# Check if the container running
+	local container_id=$(docker ps --format="{{.ID}}" --filter="name=webvps.sshd")
+	if [ "$container_id" = "" ]; then
+		>&2 echo "$0 : ${container_name} missing. Please run it"
+		exit 1
+	fi
+
+	# Check if container exist
+	container_ip=$(docker inspect -f '{{ .NetworkSettings.IPAddress }}' "${webvps}.mysql")
+	printf "docker exec -it ${container_name} /root/scripts/chroot_init_mysql.sh conf -u $webvps -P 3306 -ip $container_ip"
+	docker exec -it ${container_name} /root/scripts/chroot_init_mysql.sh conf -u $webvps -P 3306 -ip $container_ip
+	printf "\t [DONE]"
+	echo ""
+}
+
+function _webvps_ssh_chroot_add_user {
+
+	local container_name=$1
+	local username=$2
+	local user_uid=$3
+
+	if [ "${container_name}" = "" ] || [ "${username}" = "" ] || [ "${user_uid}" = "" ]; then
+		>&2 echo "$0 : missing arguments. Usage : $0 <container_name> <username> <user_uid>"
+		exit 1
+	fi
+
+	# Check if the container running
+	local container_id=$(docker ps --format="{{.ID}}" --filter="name=webvps.sshd")
+	if [ "$container_id" = "" ]; then
+		>&2 echo "$0 : ${container_name} missing. Please run it"
+		exit 1
+	fi
+
+	# Add sftpuser
+	echo "Setup sftp and ssh access."
+	echo "	> docker exec -it ${container_name} /chroot.sh adduser -u $WEBVPS_NAME -id $WEBVPS_WORKER_UID"
+	echo "	> It can take few minutes, please wait."
+	logchroot=$(docker exec -it ${container_name} /chroot.sh adduser -u ${username} -id $user_uid)
+	echo "	> [DONE]"
+}
+
+function _webvps_ssh_chroot_remove_user {
+
+	local container_name=$1
+	local username=$2
+
+	if [ "${container_name}" = "" ] || [ "${username}" = "" ]; then
+		>&2 echo "$0 : missing arguments. Usage : $0 <container_name> <username>"
+		exit 1
+	fi
+
+	# Check if the container running
+	local container_id=$(docker ps --format="{{.ID}}" --filter="name=webvps.sshd")
+	if [ "$container_id" = "" ]; then
+		>&2 echo "$0 : ${container_name} missing. Please run it"
+		exit 1
+	fi
+
+	docker exec -it ${container_name} /chroot.sh deluser -u ${username}
+}
+

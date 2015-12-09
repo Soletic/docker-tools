@@ -204,8 +204,6 @@ $ cd $DOCKER_HOSTING
 $ sudo tools/webvps.sh new -n example -h example.org -s lamp -email contact@example.org
 ```
 
-**!! -- Note the password to give it to the client. -- !!**
-
 Explication about options :
 
 * -n : unique name to refer project

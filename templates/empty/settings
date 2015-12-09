@@ -1,0 +1,26 @@
+#!/bin/bash
+
+if [ -z "${BASEDIR}" ] || [ "{$BASEDIR}" = "" ]; then
+    >&2 echo "\$BASEDIRE missing"
+    exit 1
+fi
+
+function _empty_setup {
+	:
+}
+
+function _empty_refresh {
+	:
+}
+
+function _empty_remove {
+	:
+}
+
+function _empty_after_start {
+	:
+}
+
+function _empty_print_credentials {
+	:
+}

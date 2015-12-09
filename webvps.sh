@@ -2,8 +2,8 @@
 
 BASEDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 if [ -z "${DOCKER_HOSTING}" ]; then
-        >&2 echo 'ENV var $DOCKER_HOSTING does not exist'
-        exit 1
+    >&2 echo 'ENV var $DOCKER_HOSTING does not exist'
+    exit 1
 fi
 
 # Default value
@@ -22,90 +22,7 @@ fi
 
 HOSTING_SRC=$(echo $JSON_DOCKER_WEBVPS | jq --raw-output ".src")
 
-function _setquota {
-	local platform=$(uname)
-	if [ "$platform" = "Darwin" ]; then # No quota with MacOSX
-		return;
-	fi
-	hash setquota 2>/dev/null || { echo >&2 "No quota setup because setquota command missing in your system"; return; }
-	case "$1" in
-		add)
-			# Convert because size could be scientific notation
-			printf -v size "%.f" "$3"
-			setquota -u $2 $size $size 1000000 1000000 -a
-			;;
-		remove)
-			setquota -u $2 0 0 0 0 -a
-			;;
-		*)
-			echo "invalid _setquota calling : _setquota add|remove <uid> <blockquota>"
-			return
-			;;
-	esac
-	echo "Quota for $2"
-	repquota -a | grep ^#$2
-}
-
-function _refresh {
-	# Refresh permissions file on volume
-	webvps=$1
-	. $HOSTING_SRC/$webvps/webvps.env
-	chown -R $WEBVPS_WORKER_UID:$WEBVPS_WORKER_UID $HOSTING_SRC/$webvps/volumes/www
-	chown -R $WEBVPS_WORKER_UID:$WEBVPS_WORKER_UID $HOSTING_SRC/$webvps/volumes/home
-	chown -R $WEBVPS_WORKER_UID:$WEBVPS_WORKER_UID $HOSTING_SRC/$webvps/volumes/mysql
-	chgrp -R root $HOSTING_SRC/$webvps/volumes/mysql/mysql	
-	# Fix quota
-	_setquota add $WEBVPS_WORKER_UID $(_webvps_getinfo $webvps "diskquota")
-}
-
-function _webvps_getinfo {
-	if [ -z $1 ] || [ -z $2 ]; then
-		>&2 echo "_webvps_getinfo require two arguments : webvps name and key of the info"
-		exit 1
-	fi
-	local webvps=$1
-	local key=$2
-	local i=0
-	for webvps_loop in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output '.webvps[] | .name'); do
-		if [ "$webvps_loop" = "$webvps" ]; then
-			echo $(echo $JSON_DOCKER_WEBVPS | jq --raw-output ".webvps[$i] | .$key")
-		fi 
-		((i+=1))
-	done
-	echo ""
-}
-
-# Check is a webvps as a property with specific value
-function _webvps_is_webvps_exist_by_property {
-	if [ -z $1 ] || [ -z $2 ]; then
-		>&2 echo "_webvps_is_exist require two arguments : <property> and <value>"
-		exit
-	fi
-	local property=$1
-	local value=$2
-	local i=0
-	for property_value in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output ".webvps[] | .$property"); do
-		if [ "$property_value" = "$value" ]; then
-			echo true
-			return
-		fi 
-	done
-	echo false
-}
-
-# Set the configuration for mysql connection in the sftp/ssh service for a webvps
-function _webvps_set_mysql_ssh_service {
-	local webvps=$1
-	local port=$2
-	local mysql_container_name=$3
-
-	# Check if container exist
-	container_ip=$(docker inspect -f '{{ .NetworkSettings.IPAddress }}' "${webvps}.mysql")
-	printf "docker exec -it webvps.sshd /root/scripts/chroot_init_mysql.sh conf -u $webvps -P 3306 -ip $container_ip"
-	docker exec -it webvps.sshd /root/scripts/chroot_init_mysql.sh conf -u $webvps -P 3306 -ip $container_ip
-	printf "\t [DONE]"
-	echo ""
-}
+source $BASEDIR/templates/lib
 
 case "$1" in
 	new)
@@ -206,13 +123,6 @@ case "$1" in
 		fi
 		echo "[info] uid used : $WEBVPS_ID"
 
-		# Check if the sshd container running (require to add a user allowing access volumes)
-		WEBVPS_SSH_CONTAINER_ID=$(docker ps --format="{{.ID}}" --filter="name=webvps.sshd")
-		if [ "$WEBVPS_SSH_CONTAINER_ID" = "" ]; then
-			>&2 echo "SSH webvps container missing and required to setup sshd access. Please run the container webvps.sshd"
-			exit 1
-		fi
-
 		# Set env for the webvps
 		platform=$(uname)
 		if [ "$platform" = "Darwin" ]; then # MacOSX, use current id user because it's impossible with docker-machine to harmonize user id
@@ -224,12 +134,6 @@ case "$1" in
 		WEBVPS_PORT_HTTPS=$(($WEBVPS_ID+200))"43"
 		WEBVPS_PORT_SSH=$(($WEBVPS_ID+200))"22"
 		WEBVPS_PORT_MYSQL=$(($WEBVPS_ID+200))"36"
-
-		if ! type "nproc" > /dev/null; then
-			cpu_total=1
-		else
-			cpu_total=$(nproc)
-		fi
 
 		# Set domain list
 		if [ "$WEBVPS_HOST_ALIAS" = "no" ]; then
@@ -261,60 +165,50 @@ case "$1" in
 				export WEBVPS_EMAIL=$WEBVPS_EMAIL
 			EOF
 
-		#### Docker compose 
-		# Create docker-compose and image base
+		####
+		# Load vps type plugin
+		####
+		source $BASEDIR/templates/$WEBVPS_TYPE/settings
+
+		####
+		# Docker compose init
+		####
 		ln -s $BASEDIR/templates/base.yml $HOSTING_SRC/$WEBVPS_NAME/base.yml
 		cp $BASEDIR/templates/$WEBVPS_TYPE/$WEBVPS_TYPE-docker-compose.yml $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml
-		is_mysql=$(cat $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml | grep -e "^mysql")
-		is_phpserver=$(cat $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml | grep -e "phpserver")
+		
 		# Limit resources
 		cpu_shares=128 # If overload, max 12.5% of CPU (fair rule)
 		platform=$(uname)
-		if [ "$is_phpserver" != "" ] && [ "$platform" != "Darwin" ]; then # MacOSX has sed options differents from Ubuntu
+		if [ "$platform" != "Darwin" ]; then
+			cpu_total=$(_webvps_get_cpu_total)
 			cpuset=$(expr $WEBVPS_ID % $cpu_total)
 			mem_limit=1g
-			sed -ri -e "s/%phpserver_cpuset%/$cpuset/" -e "s/%phpserver_cpu_shares%/$cpu_shares/" -e "s/%phpserver_memlimit%/$mem_limit/" $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml
-		fi
-		if [ "$is_mysql" != "" ] && [ "$platform" != "Darwin" ]; then # MacOSX has sed options differents from Ubuntu
-			cpuset=$(expr $(expr $WEBVPS_ID + 1) % $cpu_total) # cpu different of web
-			mem_limit=512m
-			sed -ri -e "s/%mysql_cpuset%/$cpuset/" -e "s/%mysql_cpu_shares%/$cpu_shares/" -e "s/%mysql_memlimit%/$mem_limit/" $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml
-		fi
-
-		# MacOSX 
-		if [ "$platform" = "Darwin" ]; then
-			sed -E -i '' "/.+cpu.+[%\"]$/d"  $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml
-			sed -E -i '' "/.+mem.+[%\"]$/d"  $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml
+			sed -ri -e "s/%.+_cpuset%/$cpuset/" \
+				-e "s/%.+_cpu_shares%/$cpu_shares/" \
+				-e "s/%.+_memlimit%/$mem_limit/" $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml
+		else
+			# MacOSX 
+			if [ "$platform" = "Darwin" ]; then
+				sed -E -i '' "/.+cpu.+[%\"]$/d"  $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml
+				sed -E -i '' "/.+mem.+[%\"]$/d"  $HOSTING_SRC/$WEBVPS_NAME/docker-compose.yml
+			fi
 		fi
 
-		#### Init volumes
-		# Is phpserver ?
-		if [ "$is_phpserver" != "" ]; then
-			mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/www/{conf,logs,html,cgi-bin}
-			mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/www/conf/{apache2,certificates}
-			mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/home/mail
-			cat > $HOSTING_SRC/$WEBVPS_NAME/volumes/www/html/index.html <<-EOF
-					Welcome $WEBVPS_HOST
-				EOF
-		fi
-		# Is mysql ?
-		if [ "$is_mysql" != "" ]; then
-			mkdir -p $HOSTING_SRC/$WEBVPS_NAME/volumes/www/backup/mysql $HOSTING_SRC/$WEBVPS_NAME/volumes/mysql
-		fi
-
-		# Add the new webvps in json file
+		####
+		# Register VPS
+		####
 		echo $JSON_DOCKER_WEBVPS | jq ".webvps |= .+ [{\"name\": \"$WEBVPS_NAME\", \"host\": \"$WEBVPS_HOST\", \"host_alias\": \"$WEBVPS_HOST_ALIAS\", \"uid\": $WEBVPS_ID, \"diskquota\": $WEBVPS_DISK_QUOTA, \"email\": \"${WEBVPS_EMAIL}\" }]" > $JSON_DOCKER_PATH
-		
-		# Add sftuser
-		echo "Setup sftp and ssh access. It can take few minutes, please wait."
-		printf "docker exec -it webvps.sshd /chroot.sh adduser -u $WEBVPS_NAME -id $WEBVPS_WORKER_UID"
-		logchroot=$(docker exec -it webvps.sshd /chroot.sh adduser -u $WEBVPS_NAME -id $WEBVPS_WORKER_UID)
-		printf "\t [DONE]"
-		echo ""
 
-		# Refresh
-		_refresh $WEBVPS_NAME
+		####
+		# Setup service and refresh
+		####
+		_${WEBVPS_TYPE}_setup $WEBVPS_NAME
+		_${WEBVPS_TYPE}_refresh $WEBVPS_NAME
+
 		echo " > Created ! Now execute : webvps.sh up $WEBVPS_NAME"
+		;;
+	service-register)
+		# Dev in porgress
 		;;
 	refresh)
 		# Refresh informations and setting for all webvps. Useful to fix problems
@@ -322,7 +216,7 @@ case "$1" in
 			if [ ! -z "$2" ] && [ "$2" != "$webvps" ]; then
 				continue
 			fi
-			_refresh $webvps
+			_webvps_refresh $webvps
 		done
 		;;
 	delete)
@@ -333,16 +227,22 @@ case "$1" in
 		webvps=$2
 		for webvps_loop in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output '.webvps[] | .name'); do
 			if [ "$webvps_loop" = "$webvps" ]; then
-				# Remove sftpuser
-				WEBVPS_SSH_CONTAINER_ID=$(docker ps --format="{{.ID}}" --filter="name=webvps.sshd")
-				if [ "$WEBVPS_SSH_CONTAINER_ID" != "" ]; then
-					docker exec -it webvps.sshd /chroot.sh deluser -u $webvps
-				fi
-		
+				source $HOSTING_SRC/$webvps/webvps.env
+				source $BASEDIR/templates/$WEBVPS_TYPE/settings
+
+				# Call hook remove for service
+				echo "_${WEBVPS_TYPE}_remove ${webvps}"
+				_${WEBVPS_TYPE}_remove "${webvps}"
+
 				cd $HOSTING_SRC/$webvps;
+				echo "Docker stoping and removing containers"
 				docker-compose stop
 				docker-compose rm -f
+
+				echo "Remove files : $HOSTING_SRC/$webvps"
 				rm -Rf $HOSTING_SRC/$webvps
+
+				echo "Unregistering vps $webvps"
 				echo $JSON_DOCKER_WEBVPS | jq "del(.webvps[$i])" > $JSON_DOCKER_PATH
 				echo "$webvps remove. If images have been built by docker-compose, you have to remove it manualy"
 				exit
@@ -360,28 +260,29 @@ case "$1" in
 			echo "=============="
 			. $HOSTING_SRC/$webvps/webvps.env
 			cd $HOSTING_SRC/$webvps;
-			is_mysql=$(cat $HOSTING_SRC/$webvps/docker-compose.yml | grep -e "^mysql")
+			source $BASEDIR/templates/$WEBVPS_TYPE/settings
 			if [ "$1" = "up" ]; then
 				docker-compose up -d
-				if [ "$is_mysql" != "" ]; then
-					# Set mysql IP in sfto container for this webvps
-					_webvps_set_mysql_ssh_service "$webvps"
-				fi
+
+				# Call hook after_start for service
+				echo "_${WEBVPS_TYPE}_after_start ${webvps}"
+				_${WEBVPS_TYPE}_after_start "${webvps}"
 			elif [ "$1" = "recreate" ]; then
 				docker-compose stop
 				docker-compose rm -f
 				docker-compose build --no-cache 
 				docker-compose up -d --force-recreate
-				_refresh $webvps
-				if [ "$is_mysql" != "" ]; then
-					# Set mysql IP in sfto container for this webvps
-					_webvps_set_mysql_ssh_service "$webvps"
-				fi
+				_webvps_refresh $webvps
+
+				# Call hook after_start for service
+				echo "_${WEBVPS_TYPE}_up ${webvps}"
+				_${WEBVPS_TYPE}_after_start "${webvps}"
 			else
 				docker-compose $1
-				if [ "$1" = "start" ] && [ "$is_mysql" != "" ]; then
-					# Set mysql IP in sfto container for this webvps
-					_webvps_set_mysql_ssh_service "$webvps"
+				if [ "$1" = "start" ]; then
+					# Call hook after_start for service
+					echo "_${WEBVPS_TYPE}_up ${webvps}"
+					_${WEBVPS_TYPE}_after_start "${webvps}"
 				fi
 			fi
 		done
@@ -435,30 +336,11 @@ case "$1" in
 			# Env
 			echo "## Environment"
 			. $HOSTING_SRC/$webvps/webvps.env
-			echo "WEBVPS_NAME=$WEBVPS_NAME"
-			echo "WEBVPS_HOST=$WEBVPS_HOST"
-			echo "WEBVPS_HOST_ALIAS=$WEBVPS_HOST_ALIAS"
-			echo "WEBVPS_PROXY_HOSTS=$WEBVPS_PROXY_HOSTS"
-			echo "WEBVPS_ID=$WEBVPS_ID"
-			echo "WEBVPS_WORKER_UID=$WEBVPS_WORKER_UID"
-			echo "WEBVPS_PORT_HTTP=$WEBVPS_PORT_HTTP"
-			echo "WEBVPS_PORT_HTTPS=$WEBVPS_PORT_HTTPS"
-			echo "WEBVPS_PORT_SSH=$WEBVPS_PORT_SSH"
-			echo "WEBVPS_PORT_MYSQL=$WEBVPS_PORT_MYSQL"
-			echo "WEBVPS_TYPE=$WEBVPS_TYPE"
-			echo "WEBVPS_EMAIL=$WEBVPS_EMAIL"
-			
-			# Mysql credentials
-			echo "## Mysql credentials"
-			cat $HOSTING_SRC/$webvps/volumes/www/backup/mysql/credentials
-
-			# SFTP credentials
-			WEBVPS_SSH_CONTAINER_ID=$(docker ps --format="{{.ID}}" --filter="name=webvps.sshd")
-			if [ "$WEBVPS_SSH_CONTAINER_ID" != "" ]; then
-				echo "## SFTP credentials"
-				docker exec -it webvps.sshd bash -c "cat /chroot/$webvps/credentials"
-			fi
-
+			cat $HOSTING_SRC/$webvps/webvps.env
+						
+			# credentials
+			source $BASEDIR/templates/$WEBVPS_TYPE/settings
+			_${WEBVPS_TYPE}_print_credentials "${webvps}"
 		done
 		;;
 	*)

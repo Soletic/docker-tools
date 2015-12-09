@@ -1,0 +1,8 @@
+based_service:
+  extends:
+    file: base.yml
+    service: soletic_service
+  cpuset: "%empty_cpuset%"
+  cpu_shares: %empty_cpu_shares%
+  mem_limit: %empty_memlimit%
+  memswap_limit: %empty_memlimit%

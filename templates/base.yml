@@ -1,31 +1,42 @@
+soletic_service:
+  container_name: ${WEBVPS_NAME}.${WEBVPS_TYPE}
+  environment:
+    WORKER_NAME: ${WEBVPS_NAME}
+    WORKER_UID: ${WEBVPS_WORKER_UID}
+
+httpserver:
+  extends:
+    service: soletic_service
+  hostname: ${WEBVPS_HOST}
+  environment:
+    HOST_DOMAIN_NAME: ${WEBVPS_HOST}
+    HOST_DOMAIN_ALIAS: ${WEBVPS_HOST_ALIAS}
+    VIRTUAL_HOST: ${WEBVPS_PROXY_HOSTS}
+    SERVER_MAIL: ${WEBVPS_EMAIL}
+  ports:
+    - "${WEBVPS_PORT_HTTPS}:443"
+    - "${WEBVPS_PORT_HTTP}:80"
+
 phpserver:
+  extends:
+    service: httpserver
   image: soletic/phpserver
   container_name: ${WEBVPS_NAME}.phpserver
   volumes:
     - ./volumes/www:/var/www
     - ./volumes/home/mail:/home/mail
-  environment:
-    WORKER_NAME: ${WEBVPS_NAME}
-    WORKER_UID: ${WEBVPS_WORKER_UID}
-    HOST_DOMAIN_NAME: ${WEBVPS_HOST}
-    HOST_DOMAIN_ALIAS: ${WEBVPS_HOST_ALIAS}
-    VIRTUAL_HOST: ${WEBVPS_PROXY_HOSTS}
-    SERVER_MAIL: ${WEBVPS_EMAIL}
-  hostname: ${WEBVPS_HOST}
-  ports:
-    - "${WEBVPS_PORT_HTTPS}:443"
-    - "${WEBVPS_PORT_HTTP}:80"
+
 mysql:
+  extends:
+    service: soletic_service
   image: soletic/mysql
   container_name: ${WEBVPS_NAME}.mysql
   volumes:
     - ./volumes/www/backup/mysql:/home/backup
     - ./volumes/mysql:/var/lib/mysql
-  environment:
-    WORKER_NAME: ${WEBVPS_NAME}
-    WORKER_UID: ${WEBVPS_WORKER_UID}
   ports:
     - "${WEBVPS_PORT_MYSQL}:3306"
+
 ssh:
   image: soletic/sshd
   container_name: ${WEBVPS_NAME}.ssh
@@ -38,6 +49,7 @@ ssh:
     - "${WEBVPS_PORT_SSH}:22"
   mem_limit: 512m
   memswap_limit: 512m
+
 phpmyadmin:
   image: soletic/phpmyadmin
   container_name: ${WEBVPS_NAME}.phpmyadmin

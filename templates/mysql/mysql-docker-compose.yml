@@ -1,0 +1,14 @@
+mysql:
+  extends:
+    file: base.yml
+    service: mysql
+  cpuset: "%mysql_cpuset%"
+  cpu_shares: %mysql_cpu_shares%
+  mem_limit: %mysql_memlimit%
+  memswap_limit: %mysql_memlimit%
+phpmyadmin:
+  extends:
+    file: base.yml
+    service: phpmyadmin
+  links:
+    - mysql:mysql

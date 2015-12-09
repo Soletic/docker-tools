@@ -1,0 +1,60 @@
+#!/bin/bash
+
+if [ -z "${BASEDIR}" ] || [ "{$BASEDIR}" = "" ]; then
+    >&2 echo "\$BASEDIRE missing"
+    exit 1
+fi
+
+function _mysql_setup {
+
+	local webvps=$1
+	if [ "${webvps}" = "" ]; then
+		>&2 echo "$0 : missing vps name as first argument. Usage : $0 <vpsname>"
+		exit 1
+	fi
+	if [ ! -d $HOSTING_SRC/$webvps ]; then
+		>&2 echo "$0 : directory $HOSTING_SRC/$webvps doesn't exist"
+		exit 1
+	fi
+
+	mkdir -p $HOSTING_SRC/$webvps/volumes/www/backup/mysql $HOSTING_SRC/$webvps/volumes/mysql
+}
+
+function _mysql_refresh {
+	
+	local webvps=$1
+	if [ "${webvps}" = "" ]; then
+		>&2 echo "$0 : missing vps name as first argument. Usage : $0 <vpsname>"
+		exit 1
+	fi
+
+	source $HOSTING_SRC/$webvps/webvps.env
+
+	# Refresh permissions file on volume
+	if [ "$(uname)" != "Darwin" ]; then
+		chown -R $WEBVPS_WORKER_UID:$WEBVPS_WORKER_UID $HOSTING_SRC/$webvps/volumes/mysql
+		chgrp -R root $HOSTING_SRC/$webvps/volumes/mysql/mysql	
+	fi
+}
+
+function _mysql_remove {
+	:
+}
+
+function _mysql_after_start {
+	:
+}
+
+function _mysql_print_credentials {
+	local webvps=$1
+	if [ "${webvps}" = "" ]; then
+		>&2 echo "$0 : missing vps name as first argument. Usage : $0 <vpsname>"
+		exit 1
+	fi
+	if [ ! -d $HOSTING_SRC/$webvps ]; then
+		>&2 echo "$0 : directory $HOSTING_SRC/$webvps doesn't exist"
+		exit 1
+	fi
+	echo "## Mysql credentials"
+	cat $HOSTING_SRC/$webvps/volumes/www/backup/mysql/credentials
+}

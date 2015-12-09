@@ -1,0 +1,34 @@
+#!/bin/bash
+
+if [ -z "${BASEDIR}" ] || [ "{$BASEDIR}" = "" ]; then
+    >&2 echo "\$BASEDIRE missing"
+    exit 1
+fi
+
+source ${BASEDIR}/templates/phpserver/settings
+
+function _wikitten_setup {
+	local webvps=$1
+	_phpserver_setup "${webvps}"
+}
+
+function _wikitten_refresh {
+	local webvps=$1
+	_phpserver_refresh "${webvps}"
+}
+
+function _wikitten_remove {
+	local webvps=$1
+	_phpserver_remove "${webvps}"
+
+}
+
+function _wikitten_after_start {
+	local webvps=$1
+	_phpserver_after_start "${webvps}"
+}
+
+function _wikitten_print_credentials {
+	local webvps=$1
+	_phpserver_print_credentials "${webvps}"
+}

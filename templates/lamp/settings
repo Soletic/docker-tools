@@ -1,0 +1,41 @@
+#!/bin/bash
+
+if [ -z "${BASEDIR}" ] || [ "{$BASEDIR}" = "" ]; then
+    >&2 echo "\$BASEDIR missing"
+    exit 1
+fi
+
+source ${BASEDIR}/templates/phpserver/settings
+source ${BASEDIR}/templates/mysql/settings
+
+function _lamp_setup {
+	local webvps=$1
+	_phpserver_setup "$webvps"
+	_mysql_setup "$webvps"
+}
+
+function _lamp_refresh {
+	local webvps=$1
+	_phpserver_refresh "$webvps"
+	_mysql_refresh "$webvps"
+
+}
+
+function _lamp_remove {
+	local webvps=$1
+	_phpserver_remove "$webvps"
+	_mysql_remove "$webvps"
+	
+}
+
+function _lamp_after_start {
+	local webvps=$1
+	_phpserver_after_start "$webvps"
+	_mysql_after_start "$webvps"
+}
+
+function _lamp_print_credentials {
+	local webvps=$1
+	_phpserver_print_credentials "$webvps"
+	_mysql_print_credentials "$webvps"
+}
