@@ -152,6 +152,28 @@ $ sudo mount -o remount /home
 $ sudo quotaon -avug
 ```
 
+### Enable docker log rotate
+
+```
+$ sudo vi /etc/logrotate.d/docker-container 
+```
+
+And tape in :
+
+```
+/var/lib/docker/containers/*/*.log {
+  rotate 7
+  daily
+  compress
+  size=1M
+  missingok
+  delaycompress
+  copytruncate
+}
+```
+
+Once you have configured Logrotate for you Docker container you can test it with ```sudo logrotate -fv /etc/logrotate.d/docker-container```
+
 ### Run a stack of required containers
 
 #### HTTP Proxy
