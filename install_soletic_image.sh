@@ -49,7 +49,7 @@ do
 		fi
 	done
 	name=$(echo "$repo" | sed -e "s/hosting-docker-//g")
-	echo "## docker build -t soletic/$name --no-cache=${build_with_cache} ./src/$repo"
+	echo "## docker build -t soletic/$name --no-cache=${build_with_no_cache} ./src/$repo"
 	if [ $is_pull -eq 0 ] || [ "$build_with_pull" = "false" ]; then
 		docker build -t soletic/$name --no-cache=${build_with_no_cache} ./src/$repo
 	else
