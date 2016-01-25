@@ -37,6 +37,7 @@ function _phpmongo_after_start {
 
 	_phpserver_after_start "$webvps"
 	_mongo_after_start "$webvps"
+	_webvps_ssh_chroot_up_mongo "webvps.sshd" "$webvps"
 }
 
 function _phpmongo_print_credentials {

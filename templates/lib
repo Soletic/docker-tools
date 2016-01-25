@@ -102,6 +102,26 @@ function _webvps_ssh_chroot_up_mysql {
 	echo ""
 }
 
+# Set the configuration for mysql connection in the sftp/ssh service for a webvps
+function _webvps_ssh_chroot_up_mongo {
+
+	local container_name=$1
+	local webvps=$2
+
+	# Check if the container running
+	local container_id=$(docker ps --format="{{.ID}}" --filter="name=webvps.sshd")
+	if [ "$container_id" = "" ]; then
+		>&2 echo "$0 : ${container_name} missing. Please run it"
+		exit 1
+	fi
+
+	# Check if container exist
+	container_ip=$(docker inspect -f '{{ .NetworkSettings.IPAddress }}' "${webvps}.mongo")
+	docker exec -it ${container_name} bash -c "echo \"$container_ip mongo\" >> /chroot/$webvps/etc/hosts"
+	printf "\t [DONE]"
+	echo ""
+}
+
 function _webvps_ssh_chroot_add_user {
 
 	local container_name=$1
