@@ -1,0 +1,8 @@
+mongo:
+  extends:
+    file: base.yml
+    service: mongo
+  cpuset: "%mongo_cpuset%"
+  cpu_shares: %mongo_cpu_shares%
+  mem_limit: %mongo_memlimit%
+  memswap_limit: %mongo_memlimit%

@@ -1,0 +1,45 @@
+#!/bin/bash
+
+if [ -z "${BASEDIR}" ] || [ "{$BASEDIR}" = "" ]; then
+    >&2 echo "\$BASEDIR missing"
+    exit 1
+fi
+
+source ${BASEDIR}/templates/phpserver/settings
+source ${BASEDIR}/templates/mongo/settings
+
+function _phpmongo_setup {
+	local webvps=$1
+	_phpserver_setup "$webvps"
+	_mongo_setup "$webvps"
+}
+
+function _phpmongo_refresh {
+	local webvps=$1
+	_phpserver_refresh "$webvps"
+	_mongo_refresh "$webvps"
+
+}
+
+function _phpmongo_remove {
+	local webvps=$1
+	_phpserver_remove "$webvps"
+	_mongo_remove "$webvps"
+	
+}
+
+function _phpmongo_after_start {
+	local webvps=$1
+	if [ "${webvps}" = "" ]; then
+		>&2 echo "$0 : missing vps name as first argument. Usage : $0 <vpsname>"
+		exit 1
+	fi
+
+	_phpserver_after_start "$webvps"
+	_mongo_after_start "$webvps"
+}
+
+function _phpmongo_print_credentials {
+	local webvps=$1
+	_phpserver_print_credentials "$webvps"
+}

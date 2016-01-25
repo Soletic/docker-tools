@@ -37,6 +37,16 @@ mysql:
   ports:
     - "${WEBVPS_PORT_MYSQL}:3306"
 
+mongo:
+  extends:
+    service: soletic_service
+  image: soletic/mongo
+  container_name: ${WEBVPS_NAME}.mongo
+  volumes:
+    - ./volumes/mongo/db:/data/db
+  ports:
+    - "${WEBVPS_PORT_MONGO}:27017"
+
 ssh:
   image: soletic/sshd
   container_name: ${WEBVPS_NAME}.ssh
