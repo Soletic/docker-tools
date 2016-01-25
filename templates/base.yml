@@ -44,6 +44,7 @@ mongo:
   container_name: ${WEBVPS_NAME}.mongo
   volumes:
     - ./volumes/mongo/db:/data/db
+    - ./volumes/mongo/log:/var/log/mongodb
   ports:
     - "${WEBVPS_PORT_MONGO}:27017"
 

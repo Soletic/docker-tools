@@ -42,4 +42,5 @@ function _phpmongo_after_start {
 function _phpmongo_print_credentials {
 	local webvps=$1
 	_phpserver_print_credentials "$webvps"
+	_mongo_print_credentials "$webvps"
 }

@@ -17,7 +17,7 @@ function _mongo_setup {
 		exit 1
 	fi
 
-	mkdir -p $HOSTING_SRC/$webvps/volumes/mongo/db
+	mkdir -p $HOSTING_SRC/$webvps/volumes/mongo/db $HOSTING_SRC/$webvps/volumes/mongo/log
 }
 
 function _mongo_refresh {
@@ -45,5 +45,15 @@ function _mongo_after_start {
 }
 
 function _mongo_print_credentials {
-	:
+	local webvps=$1
+	if [ "${webvps}" = "" ]; then
+		>&2 echo "$0 : missing vps name as first argument. Usage : $0 <vpsname>"
+		exit 1
+	fi
+	if [ ! -d $HOSTING_SRC/$webvps ]; then
+		>&2 echo "$0 : directory $HOSTING_SRC/$webvps doesn't exist"
+		exit 1
+	fi
+	echo "## Mongo credentials"
+	cat $HOSTING_SRC/$webvps/volumes/mongo/db/credentials
 }
