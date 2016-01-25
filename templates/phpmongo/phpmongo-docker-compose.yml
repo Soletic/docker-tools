@@ -3,22 +3,16 @@ phpserver:
     file: base.yml
     service: phpserver
   links:
-    - mysql:mysql
+    - mongo:mongo
   cpuset: "%phpserver_cpuset%"
   cpu_shares: %phpserver_cpu_shares%
   mem_limit: %phpserver_memlimit%
   memswap_limit: %phpserver_memlimit%
-mysql:
+mongo:
   extends:
     file: base.yml
-    service: mysql
-  cpuset: "%mysql_cpuset%"
-  cpu_shares: %mysql_cpu_shares%
-  mem_limit: %mysql_memlimit%
-  memswap_limit: %mysql_memlimit%
-phpmyadmin:
-  extends:
-    file: base.yml
-    service: phpmyadmin
-  links:
-    - mysql:mysql
+    service: mongo
+  cpuset: "%mongo_cpuset%"
+  cpu_shares: %mongo_cpu_shares%
+  mem_limit: %mongo_memlimit%
+  memswap_limit: %mongo_memlimit%
