@@ -260,6 +260,7 @@ case "$1" in
 			fi
 			echo "Webvps $webvps"
 			echo "=============="
+			. $BASEDIR/env.default
 			. $HOSTING_SRC/$webvps/webvps.env
 			cd $HOSTING_SRC/$webvps;
 			source $BASEDIR/templates/$WEBVPS_TYPE/settings
