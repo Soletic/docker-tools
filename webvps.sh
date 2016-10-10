@@ -335,7 +335,6 @@ case "$1" in
 			fi
 			echo "Information for $webvps"
 			echo "======================="
-			container_list=
 			# Env
 			echo "## Environment"
 			. $HOSTING_SRC/$webvps/webvps.env
@@ -344,6 +343,27 @@ case "$1" in
 			# credentials
 			source $BASEDIR/templates/$WEBVPS_TYPE/settings
 			_${WEBVPS_TYPE}_print_credentials "${webvps}"
+		done
+		;;
+	ssh-setup)
+		if [ -z "$2" ]; then
+			>&2 echo "Command usage : $0 ssh-setup mysql|php [<webvps>]"
+			>&2 echo "	setup php not implemented"
+			exit 1
+		fi
+		echo "Setup mysql in webvps.sshd"
+		echo "=========================="
+		for webvps in $(echo $JSON_DOCKER_WEBVPS | jq --raw-output '.webvps[] | .name'); do
+			if [ ! -z "$3" ] && [ "$3" != "$webvps" ]; then
+				continue
+			fi			
+			# Env
+			echo "load ${webvps} environment"
+			. $HOSTING_SRC/$webvps/webvps.env
+			if [ ! -z "$2" ] && [ "$2" == "mysql" ] && [ "$WEBVPS_TYPE" == "lamp" ]; then
+				_webvps_ssh_chroot_up_mysql "webvps.sshd" "$webvps"
+				echo "	mysql setup done"
+			fi	
 		done
 		;;
 	*)
