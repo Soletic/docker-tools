@@ -527,17 +527,7 @@ The webmaster of a webvps can't add himself certificates because you have to add
 
 * [optional] If you have trusted certificates signed, copy the *.key and *.crt in directory ```www/conf/certificates```. The file name have to the same of the host domaine !
 * Copy this files in the certs directory of the proxy
-
-	```
-	Quand on utilise StartSSL, il demande d'installer un fichier sub.class1.server.ca.pem avec la configuration suivante (pour apache) :
-	SSLCertificateChainFile /var/www/conf/certificates/sub.class1.server.ca.pem
-	
-	Pour le proxy Nginx, il faut concaténer au au certificat signé :
-	$ cd $DOCKER_HOSTING/certs
-	$ cat sub.class1.server.ca.pem >> <domain>.crt 
-	```
-
-* In directory ```www/conf``` create the file ```apache.reload``` to force reload of apache (max one minute to reload)
+* In directory ```www/conf``` create the file ```apache2.reload``` to force reload of apache (max one minute to reload)
 * Restart the http proxy container
 
 ### Remove ssl support to a container
